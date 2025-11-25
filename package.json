@@ -1,9 +1,8 @@
-
-[200~{
+{
   "name": "experimental-triple-builder",
   "version": "1.0.0",
   "description": "Knowledge graph builder with Wikidata integration",
-  "homepage": "https://experimental-unit.github.io/experimental-unit",
+  "homepage": "https://astephenw.github.io/experimental-unit",
   "private": true,
   "dependencies": {
     "react": "^18.2.0",
@@ -33,4 +32,4 @@
       "last 1 safari version"
     ]
   }
-}~
+}

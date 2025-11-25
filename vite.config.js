@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/experimental-unit/', // Change this to match your repo name
+  base: '/', // Change this to match your repo name
   build: {
     outDir: 'dist',
     sourcemap: false,
