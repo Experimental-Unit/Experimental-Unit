@@ -1,70 +1,134 @@
-# Getting Started with Create React App
+# 📊 Experimental Unit Triple Builder
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern React application for building knowledge graphs with Wikidata integration. Create, visualize, and export semantic triples in JSON and JSON-LD formats.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- 🔍 **Wikidata Integration**: Search and select entities and properties from Wikidata
+- ➕ **Custom Nodes**: Create your own entities and properties
+- 📊 **Live Visualization**: Interactive graph visualization using vis-network
+- 💾 **Import/Export**: Save and load graphs in JSON format
+- 🌐 **Semantic Web Ready**: Export to JSON-LD for linked data applications
+- 🎨 **Clean UI**: Modern, intuitive interface
 
-### `npm start`
+## Getting Started
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Prerequisites
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- Node.js (v16 or higher)
+- npm or yarn
+- A GitHub account (for deployment)
 
-### `npm test`
+### Installation
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+1. Clone this repository:
+```bash
+git clone https://github.com/YOUR_USERNAME/triple-builder.git
+cd triple-builder
+```
 
-### `npm run build`
+2. Install dependencies:
+```bash
+npm install
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+3. Start the development server:
+```bash
+npm run dev
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+The app will open at `http://localhost:3000`
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Deployment to GitHub Pages
 
-### `npm run eject`
+### Step 1: Update Configuration
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+1. Edit `package.json` and update the homepage:
+```json
+"homepage": "https://YOUR_GITHUB_USERNAME.github.io/triple-builder"
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+2. Edit `vite.config.js` and update the base:
+```javascript
+base: '/triple-builder/' // or whatever your repo name is
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Step 2: Deploy
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+1. Build and deploy:
+```bash
+npm run deploy
+```
 
-## Learn More
+This will:
+- Build your app
+- Create a `gh-pages` branch
+- Push the built files to GitHub Pages
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Step 3: Enable GitHub Pages
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+1. Go to your repository on GitHub
+2. Navigate to Settings → Pages
+3. Under "Source", select the `gh-pages` branch
+4. Click Save
 
-### Code Splitting
+Your app will be live at: `https://YOUR_GITHUB_USERNAME.github.io/triple-builder/`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Usage
 
-### Analyzing the Bundle Size
+### Starting a Session
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+1. Enter a session label (e.g., "my-research")
+2. Click "Start Session"
 
-### Making a Progressive Web App
+### Building Triples
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+1. **Entity 1 (Subject)**: Search for or create an entity
+2. **Property (Relationship)**: Search for or create a property
+3. **Entity 2 (Object)**: Search for or create an entity
+4. Click "Add Triple to Graph"
 
-### Advanced Configuration
+### Managing Your Graph
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+- **View**: See all triples listed and visualized in the graph
+- **Remove**: Click "Remove" on any triple to delete it
+- **Export**: Download as JSON or JSON-LD
+- **Import**: Load previously saved graphs
 
-### Deployment
+## File Structure
+```
+triple-builder/
+├── public/
+│   └── index.html          # HTML template
+├── src/
+│   ├── App.jsx            # Main application component
+│   ├── index.js           # React entry point
+│   └── index.css          # Global styles
+├── package.json           # Dependencies and scripts
+├── vite.config.js         # Vite configuration
+└── README.md             # This file
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Built With
 
-### `npm run build` fails to minify
+- [React 18](https://react.dev/) - UI framework
+- [Vite](https://vitejs.dev/) - Build tool
+- [vis-network](https://visjs.github.io/vis-network/docs/network/) - Graph visualization
+- [Wikidata API](https://www.wikidata.org/wiki/Wikidata:Data_access) - Knowledge base
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## Contributing
+
+Contributions are welcome! Feel free to open issues or submit pull requests.
+
+## License
+
+MIT License - feel free to use this project for any purpose.
+
+## Author
+
+Æ (Adam Stephen Wadley)
+
+## Acknowledgments
+
+- Wikidata community for the amazing knowledge base
+- vis.js team for the graph visualization library
