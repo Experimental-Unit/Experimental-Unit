@@ -1,5 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+// Dynamically load vis-network from CDN
+const loadVisNetwork = () => {
+  return new Promise((resolve) => {
+    if (window.vis) {
+      resolve(window.vis);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js';
+    script.onload = () => resolve(window.vis);
+    document.head.appendChild(script);
+  });
+};
+
 export default function TripleBuilder() {
   // Session state
   const [sessionLabel, setSessionLabel] = useState('');
@@ -223,7 +237,7 @@ export default function TripleBuilder() {
     URL.revokeObjectURL(url);
   };
 
-  const renderGraph = () => {
+  const renderGraph = async () => {
     if (!graphRef.current) return;
 
     const nodes = [];
@@ -278,18 +292,22 @@ export default function TripleBuilder() {
       networkRef.current.destroy();
     }
 
-    const vis = require('vis-network');
-    networkRef.current = new vis.Network(
-      graphRef.current,
-      { nodes, edges },
-      { physics: { enabled: true, stabilization: { iterations: 200 } } }
-    );
+    try {
+      const vis = await loadVisNetwork();
+      networkRef.current = new vis.Network(
+        graphRef.current,
+        { nodes, edges },
+        { physics: { enabled: true, stabilization: { iterations: 200 } } }
+      );
 
-    networkRef.current.on('click', (params) => {
-      if (params.nodes.length > 0) {
-        setSelectedNodeInGraph(params.nodes[0]);
-      }
-    });
+      networkRef.current.on('click', (params) => {
+        if (params.nodes.length > 0) {
+          setSelectedNodeInGraph(params.nodes[0]);
+        }
+      });
+    } catch (err) {
+      console.error('Error loading vis-network:', err);
+    }
   };
 
   const { entities, properties } = (() => {
