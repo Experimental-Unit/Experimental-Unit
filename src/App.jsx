@@ -1,7 +1,24 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 
-// Dynamically load vis-network from CDN
+// Color palette from TECHNICAL.md
+const colors = {
+  orange: '#FF6B35',
+  purple: '#7B2D8E',
+  forest: '#2D5A27',
+  grey: '#4A4A4A',
+  black: '#1A1A1A',
+  neonYellow: '#DFFF00',
+  oceanBlue: '#0077B6',
+  pink: '#FF69B4',
+  white: '#FAFAFA',
+  red: '#DC143C',
+  affirmed: '#4CAF50',
+  rejected: '#F44336',
+  nuanced: '#FF9800',
+  pending: '#9E9E9E',
+};
+
+// Load vis-network for graph visualization
 const loadVisNetwork = () => {
   return new Promise((resolve) => {
     if (window.vis) {
@@ -15,296 +32,344 @@ const loadVisNetwork = () => {
   });
 };
 
+// Generate unique IDs
+const generateId = () => `prop_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+// Chunk text for processing
+const chunkText = (text, maxChars = 6000) => {
+  const chunks = [];
+  const paragraphs = text.split(/\n\n+/);
+  let currentChunk = '';
+
+  for (const para of paragraphs) {
+    if (currentChunk.length + para.length > maxChars && currentChunk.length > 0) {
+      chunks.push(currentChunk.trim());
+      currentChunk = para;
+    } else {
+      currentChunk += '\n\n' + para;
+    }
+  }
+  if (currentChunk.trim()) {
+    chunks.push(currentChunk.trim());
+  }
+  return chunks;
+};
+
+// Extract propositions using LLM
+const extractPropositions = async (text, apiKey, provider = 'anthropic') => {
+  const prompt = `Analyze this text and extract the key propositions, beliefs, and claims being made. For each proposition:
+1. State it clearly and concisely
+2. Identify if it's FOUNDATIONAL (a core belief about reality, ethics, existence, or first principles) or DERIVATIVE (a claim that builds on or follows from other beliefs)
+3. Suggest a category: metaphysics, epistemology, ethics, politics, aesthetics, psychology, or other
+
+Return as JSON array:
+[
+  {
+    "text": "The proposition stated clearly",
+    "foundational": true/false,
+    "category": "category name",
+    "sourceExcerpt": "brief quote from original text"
+  }
+]
+
+Extract 5-15 propositions from this text. Focus on substantive claims, not descriptions or observations.
+
+TEXT:
+${text}
+
+Return ONLY valid JSON, no other text.`;
+
+  if (provider === 'anthropic') {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`API error: ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.content[0].text;
+
+    // Parse JSON from response
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    throw new Error('Could not parse propositions from response');
+  } else if (provider === 'openai') {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 4096,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`API error: ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    throw new Error('Could not parse propositions from response');
+  }
+};
+
+// Parse HTML to plain text
+const htmlToText = (html) => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+};
+
 export default function App() {
-  // Session state
-  const [sessionLabel, setSessionLabel] = useState('');
-  const [sessionStarted, setSessionStarted] = useState(false);
-  
-  // Graph data
-  const [triples, setTriples] = useState([]);
-  const [nodesMap, setNodesMap] = useState({});
-  const [counters, setCounters] = useState({ entity: 1, property: 1 });
-  
-  // Search state with debouncing
-  const [e1Query, setE1Query] = useState('');
-  const [e1Results, setE1Results] = useState([]);
-  const [e1Selected, setE1Selected] = useState(null);
-  
-  const [pQuery, setPQuery] = useState('');
-  const [pResults, setPResults] = useState([]);
-  const [pSelected, setPSelected] = useState(null);
-  
-  const [e2Query, setE2Query] = useState('');
-  const [e2Results, setE2Results] = useState([]);
-  const [e2Selected, setE2Selected] = useState(null);
-  
-  // Graph visualization
-  const [selectedNodeInGraph, setSelectedNodeInGraph] = useState(null);
+  // App state
+  const [view, setView] = useState('home'); // home, import, review, graph, settings
+
+  // API settings
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('xu_api_key') || '');
+  const [apiProvider, setApiProvider] = useState(() => localStorage.getItem('xu_api_provider') || 'anthropic');
+
+  // Worldview data
+  const [worldview, setWorldview] = useState(() => {
+    const saved = localStorage.getItem('xu_worldview');
+    return saved ? JSON.parse(saved) : {
+      id: generateId(),
+      label: 'My Worldview',
+      propositions: [],
+      connections: [],
+      metadata: { createdAt: Date.now(), postCount: 0 }
+    };
+  });
+
+  // Import state
+  const [importText, setImportText] = useState('');
+  const [importProgress, setImportProgress] = useState(null);
+  const [importError, setImportError] = useState(null);
+
+  // Review state
+  const [currentPropIndex, setCurrentPropIndex] = useState(0);
+  const [filterStatus, setFilterStatus] = useState('pending');
+
+  // Graph state
   const graphRef = useRef(null);
   const networkRef = useRef(null);
 
-  const isProperty = (id) => id.includes('-P') || id.startsWith('P');
+  // Save worldview to localStorage
+  useEffect(() => {
+    localStorage.setItem('xu_worldview', JSON.stringify(worldview));
+  }, [worldview]);
 
-  // Debounced Wikidata search
-  const debounceSearch = (query, type, setter) => {
-    if (!query.trim()) {
-      setter([]);
+  // Save API settings
+  useEffect(() => {
+    localStorage.setItem('xu_api_key', apiKey);
+    localStorage.setItem('xu_api_provider', apiProvider);
+  }, [apiKey, apiProvider]);
+
+  // Filter propositions by status
+  const filteredProps = worldview.propositions.filter(p =>
+    filterStatus === 'all' ? true : p.status === filterStatus
+  );
+
+  // Sort: foundational first, then by category
+  const sortedProps = [...filteredProps].sort((a, b) => {
+    if (a.foundational && !b.foundational) return -1;
+    if (!a.foundational && b.foundational) return 1;
+    return (a.category || '').localeCompare(b.category || '');
+  });
+
+  const currentProp = sortedProps[currentPropIndex];
+
+  // Import text and extract propositions
+  const handleImport = async () => {
+    if (!apiKey) {
+      setImportError('Please set your API key in Settings first');
       return;
     }
-    
-    const timer = setTimeout(async () => {
-      try {
-        const url = type === 'property'
-          ? `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=en&type=property&format=json&origin=*`
-          : `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=en&type=item&format=json&origin=*`;
-
-        const response = await fetch(url);
-        const data = await response.json();
-        setter(data.search || []);
-      } catch (err) {
-        console.error('Search error:', err);
-        setter([]);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  };
-
-  // Debounce hooks
-  useEffect(() => debounceSearch(e1Query, 'item', setE1Results), [e1Query]);
-  useEffect(() => debounceSearch(e2Query, 'item', setE2Results), [e2Query]);
-  useEffect(() => debounceSearch(pQuery, 'property', setPResults), [pQuery]);
-
-  const startSession = () => {
-    if (!sessionLabel.trim()) {
-      alert('Please enter a session label.');
-      return;
-    }
-    setSessionStarted(true);
-  };
-
-  const selectResult = (item, type) => {
-    const label = `${item.label} (${item.id})`;
-    if (type === 'e1') {
-      setE1Selected({ id: item.id, label });
-      setE1Query(item.label);
-      setE1Results([]);
-    } else if (type === 'e2') {
-      setE2Selected({ id: item.id, label });
-      setE2Query(item.label);
-      setE2Results([]);
-    } else if (type === 'p') {
-      setPSelected({ id: item.id, label });
-      setPQuery(item.label);
-      setPResults([]);
-    }
-  };
-
-  const createNewNode = (type) => {
-    let id, nodeId;
-    if (type === 'property') {
-      id = `P${counters.property}`;
-      setCounters({ ...counters, property: counters.property + 1 });
-      nodeId = `${sessionLabel}-${id}`;
-    } else {
-      id = `Q${counters.entity}`;
-      setCounters({ ...counters, entity: counters.entity + 1 });
-      nodeId = `${sessionLabel}-${id}`;
-    }
-
-    const labelInput = prompt(`Enter label for new ${type}:`) || `${sessionLabel}-${id}`;
-    const label = `${labelInput} (${nodeId})`;
-
-    setNodesMap({ ...nodesMap, [nodeId]: labelInput });
-
-    if (type === 'property') {
-      setPSelected({ id: nodeId, label });
-      setPQuery(labelInput);
-    } else if (type === 'e1') {
-      setE1Selected({ id: nodeId, label });
-      setE1Query(labelInput);
-    } else {
-      setE2Selected({ id: nodeId, label });
-      setE2Query(labelInput);
-    }
-  };
-
-  const addTriple = () => {
-    if (!e1Selected || !pSelected || !e2Selected) {
-      alert('Select all three parts of the triple first.');
+    if (!importText.trim()) {
+      setImportError('Please paste some text to import');
       return;
     }
 
-    const triple = {
-      e1Id: e1Selected.id,
-      pId: pSelected.id,
-      e2Id: e2Selected.id
-    };
+    setImportError(null);
+    setImportProgress({ current: 0, total: 0, status: 'Preparing text...' });
 
-    setTriples([...triples, triple]);
+    try {
+      const chunks = chunkText(importText);
+      setImportProgress({ current: 0, total: chunks.length, status: 'Extracting propositions...' });
 
-    const newNodesMap = { ...nodesMap };
-    newNodesMap[e1Selected.id] = e1Selected.label.split(' (')[0];
-    newNodesMap[pSelected.id] = pSelected.label.split(' (')[0];
-    newNodesMap[e2Selected.id] = e2Selected.label.split(' (')[0];
-    setNodesMap(newNodesMap);
+      const allPropositions = [];
 
-    setE1Selected(null);
-    setPSelected(null);
-    setE2Selected(null);
-    setE1Query('');
-    setPQuery('');
-    setE2Query('');
-  };
+      for (let i = 0; i < chunks.length; i++) {
+        setImportProgress({
+          current: i + 1,
+          total: chunks.length,
+          status: `Processing chunk ${i + 1} of ${chunks.length}...`
+        });
 
-  const removeTriple = (idx) => {
-    setTriples(triples.filter((_, i) => i !== idx));
-  };
+        try {
+          const props = await extractPropositions(chunks[i], apiKey, apiProvider);
 
-  const mergeGraphs = (graphData) => {
-    const newNodesMap = { ...nodesMap };
-    const newTriples = [...triples];
-
-    // Merge nodes
-    Object.assign(newNodesMap, graphData.nodesMap);
-
-    // Merge triples (avoid duplicates)
-    const tripleSet = new Set(triples.map(t => JSON.stringify(t)));
-    graphData.triples.forEach(t => {
-      if (!tripleSet.has(JSON.stringify(t))) {
-        newTriples.push(t);
-        tripleSet.add(JSON.stringify(t));
-      }
-    });
-
-    setNodesMap(newNodesMap);
-    setTriples(newTriples);
-  };
-
-  const importGraph = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.multiple = true;
-    input.addEventListener('change', (e) => {
-      Array.from(e.target.files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const data = JSON.parse(event.target.result);
-            if (!data.triples || !data.nodesMap) {
-              alert(`Invalid file format: ${file.name}`);
-              return;
-            }
-            
-            if (!sessionStarted) {
-              setSessionLabel(data.sessionLabel || 'imported-session');
-              setSessionStarted(true);
-            }
-            mergeGraphs(data);
-          } catch (err) {
-            alert(`Error parsing ${file.name}: ${err.message}`);
+          for (const prop of props) {
+            allPropositions.push({
+              id: generateId(),
+              text: prop.text,
+              foundational: prop.foundational,
+              category: prop.category,
+              sourceExcerpt: prop.sourceExcerpt,
+              status: 'pending',
+              nuance: '',
+              confidence: 0.5,
+              createdAt: Date.now(),
+            });
           }
-        };
-        reader.readAsText(file);
-      });
-    });
-    input.click();
+        } catch (err) {
+          console.error(`Error processing chunk ${i}:`, err);
+        }
+
+        // Small delay to avoid rate limiting
+        await new Promise(r => setTimeout(r, 500));
+      }
+
+      setWorldview(prev => ({
+        ...prev,
+        propositions: [...prev.propositions, ...allPropositions],
+        metadata: {
+          ...prev.metadata,
+          postCount: prev.metadata.postCount + 1,
+          totalPropositions: prev.propositions.length + allPropositions.length,
+        }
+      }));
+
+      setImportProgress({ current: chunks.length, total: chunks.length, status: 'Done!' });
+      setImportText('');
+
+      setTimeout(() => {
+        setImportProgress(null);
+        setView('review');
+      }, 1500);
+
+    } catch (err) {
+      setImportError(`Import failed: ${err.message}`);
+      setImportProgress(null);
+    }
   };
 
-  const exportGraph = (format = 'json') => {
-    let data, filename;
+  // Handle file upload
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    let allText = '';
 
-    if (format === 'jsonld') {
-      // Convert to JSON-LD
-      const context = {
-        '@context': {
-          'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-          'rdfs': 'http://www.w3.org/2000/01/rdf-schema#',
-          'wd': 'http://www.wikidata.org/entity/',
-          'wdt': 'http://www.wikidata.org/prop/direct/'
-        },
-        '@graph': triples.map(t => ({
-          '@id': t.e1Id.startsWith('Q') || t.e1Id.startsWith('P') ? `wd:${t.e1Id}` : t.e1Id,
-          [t.pId.startsWith('P') ? `wdt:${t.pId}` : t.pId]: {
-            '@id': t.e2Id.startsWith('Q') || t.e2Id.startsWith('P') ? `wd:${t.e2Id}` : t.e2Id
-          }
-        }))
-      };
-      data = JSON.stringify(context, null, 2);
-      filename = `knowledge-graph-${sessionLabel}-${Date.now()}.jsonld`;
-    } else {
-      data = JSON.stringify({
-        sessionLabel,
-        timestamp: new Date().toISOString(),
-        triples,
-        nodesMap
-      }, null, 2);
-      filename = `knowledge-graph-${sessionLabel}-${Date.now()}.json`;
+    for (const file of files) {
+      const text = await file.text();
+      if (file.name.endsWith('.html')) {
+        allText += '\n\n---\n\n' + htmlToText(text);
+      } else {
+        allText += '\n\n---\n\n' + text;
+      }
     }
 
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setImportText(allText.trim());
   };
 
+  // Update proposition status
+  const updateProp = (id, updates) => {
+    setWorldview(prev => ({
+      ...prev,
+      propositions: prev.propositions.map(p =>
+        p.id === id ? { ...p, ...updates, modifiedAt: Date.now() } : p
+      )
+    }));
+  };
+
+  // Affirm/Reject/Nuance handlers
+  const handleAffirm = () => {
+    if (currentProp) {
+      updateProp(currentProp.id, { status: 'affirmed' });
+      if (currentPropIndex < sortedProps.length - 1) {
+        setCurrentPropIndex(currentPropIndex + 1);
+      }
+    }
+  };
+
+  const handleReject = () => {
+    if (currentProp) {
+      updateProp(currentProp.id, { status: 'rejected' });
+      if (currentPropIndex < sortedProps.length - 1) {
+        setCurrentPropIndex(currentPropIndex + 1);
+      }
+    }
+  };
+
+  const handleNuance = (nuanceText) => {
+    if (currentProp) {
+      updateProp(currentProp.id, { status: 'nuanced', nuance: nuanceText });
+      if (currentPropIndex < sortedProps.length - 1) {
+        setCurrentPropIndex(currentPropIndex + 1);
+      }
+    }
+  };
+
+  // Render graph visualization
   const renderGraph = async () => {
-    if (!graphRef.current || triples.length === 0) return;
+    if (!graphRef.current) return;
 
-    const nodes = [];
+    const reviewed = worldview.propositions.filter(p => p.status !== 'pending');
+    if (reviewed.length === 0) return;
+
+    const nodes = reviewed.map(p => ({
+      id: p.id,
+      label: p.text.substring(0, 50) + (p.text.length > 50 ? '...' : ''),
+      title: p.text + (p.nuance ? `\n\nNuance: ${p.nuance}` : ''),
+      color: p.status === 'affirmed' ? colors.affirmed
+           : p.status === 'rejected' ? colors.rejected
+           : colors.nuanced,
+      shape: p.foundational ? 'diamond' : 'ellipse',
+      size: p.foundational ? 30 : 20,
+      font: { color: colors.white },
+    }));
+
+    // Create edges based on category connections
     const edges = [];
-    const seen = new Set();
+    const byCategory = {};
+    reviewed.forEach(p => {
+      if (!byCategory[p.category]) byCategory[p.category] = [];
+      byCategory[p.category].push(p.id);
+    });
 
-    triples.forEach(t => {
-      if (!seen.has(t.e1Id)) {
-        nodes.push({
-          id: t.e1Id,
-          label: nodesMap[t.e1Id] || t.e1Id,
-          title: nodesMap[t.e1Id],
-          color: '#FFE5B4',
-          shape: 'ellipse'
+    Object.values(byCategory).forEach(ids => {
+      for (let i = 0; i < ids.length - 1; i++) {
+        edges.push({
+          from: ids[i],
+          to: ids[i + 1],
+          color: { color: colors.grey, opacity: 0.3 },
+          smooth: { type: 'continuous' },
         });
-        seen.add(t.e1Id);
       }
-      if (!seen.has(t.e2Id)) {
-        nodes.push({
-          id: t.e2Id,
-          label: nodesMap[t.e2Id] || t.e2Id,
-          title: nodesMap[t.e2Id],
-          color: '#FFE5B4',
-          shape: 'ellipse'
-        });
-        seen.add(t.e2Id);
-      }
-      if (!seen.has(t.pId)) {
-        nodes.push({
-          id: t.pId,
-          label: nodesMap[t.pId] || t.pId,
-          title: nodesMap[t.pId],
-          color: '#B4D7FF',
-          shape: 'diamond'
-        });
-        seen.add(t.pId);
-      }
-
-      edges.push({
-        from: t.e1Id,
-        to: t.pId,
-        arrows: 'to',
-        smooth: { type: 'cubicBezier' }
-      });
-      edges.push({
-        from: t.pId,
-        to: t.e2Id,
-        arrows: 'to',
-        smooth: { type: 'cubicBezier' }
-      });
     });
 
     if (networkRef.current) {
@@ -319,264 +384,527 @@ export default function App() {
         {
           physics: {
             enabled: true,
-            stabilization: { iterations: 200 },
+            stabilization: { iterations: 100 },
             barnesHut: {
-              gravitationalConstant: -2000,
-              springConstant: 0.04,
-              springLength: 95
-            }
+              gravitationalConstant: -3000,
+              springConstant: 0.02,
+              springLength: 150,
+            },
           },
           interaction: {
             hover: true,
-            tooltipDelay: 200
-          }
+            tooltipDelay: 100,
+          },
         }
       );
-
-      networkRef.current.on('click', (params) => {
-        if (params.nodes.length > 0) {
-          setSelectedNodeInGraph(params.nodes[0]);
-        }
-      });
     } catch (err) {
-      console.error('Error loading vis-network:', err);
+      console.error('Graph render error:', err);
     }
   };
 
-  const { entities, properties } = (() => {
-    const e = [], p = [];
-    Object.keys(nodesMap).forEach(id => {
-      if (isProperty(id)) p.push({ id, label: nodesMap[id] });
-      else e.push({ id, label: nodesMap[id] });
-    });
-    return {
-      entities: e.sort((a, b) => a.label.localeCompare(b.label)),
-      properties: p.sort((a, b) => a.label.localeCompare(b.label))
-    };
-  })();
-
   useEffect(() => {
-    if (sessionStarted && triples.length > 0) {
+    if (view === 'graph') {
       renderGraph();
     }
-  }, [triples, nodesMap, sessionStarted]);
+  }, [view, worldview]);
+
+  // Stats
+  const stats = {
+    total: worldview.propositions.length,
+    pending: worldview.propositions.filter(p => p.status === 'pending').length,
+    affirmed: worldview.propositions.filter(p => p.status === 'affirmed').length,
+    rejected: worldview.propositions.filter(p => p.status === 'rejected').length,
+    nuanced: worldview.propositions.filter(p => p.status === 'nuanced').length,
+    foundational: worldview.propositions.filter(p => p.foundational).length,
+  };
+
+  // Export worldview
+  const exportWorldview = () => {
+    const data = JSON.stringify(worldview, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `worldview-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Import worldview
+  const importWorldview = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        setWorldview(data);
+      } catch (err) {
+        alert('Could not read worldview file');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Styles
+  const styles = {
+    container: {
+      minHeight: '100vh',
+      backgroundColor: colors.black,
+      color: colors.white,
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+    },
+    header: {
+      padding: '20px',
+      borderBottom: `2px solid ${colors.purple}`,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: '24px',
+      fontWeight: 'bold',
+      color: colors.orange,
+      margin: 0,
+    },
+    nav: {
+      display: 'flex',
+      gap: '10px',
+    },
+    navButton: (active) => ({
+      padding: '10px 20px',
+      backgroundColor: active ? colors.purple : 'transparent',
+      color: colors.white,
+      border: `1px solid ${colors.purple}`,
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontSize: '14px',
+    }),
+    main: {
+      padding: '30px',
+      maxWidth: '1200px',
+      margin: '0 auto',
+    },
+    card: {
+      backgroundColor: colors.grey + '33',
+      borderRadius: '8px',
+      padding: '25px',
+      marginBottom: '20px',
+      border: `1px solid ${colors.grey}`,
+    },
+    textarea: {
+      width: '100%',
+      minHeight: '300px',
+      padding: '15px',
+      backgroundColor: colors.black,
+      color: colors.white,
+      border: `1px solid ${colors.grey}`,
+      borderRadius: '4px',
+      fontSize: '14px',
+      resize: 'vertical',
+    },
+    button: (color = colors.purple) => ({
+      padding: '12px 24px',
+      backgroundColor: color,
+      color: colors.white,
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontSize: '16px',
+      fontWeight: '500',
+    }),
+    input: {
+      padding: '10px',
+      backgroundColor: colors.black,
+      color: colors.white,
+      border: `1px solid ${colors.grey}`,
+      borderRadius: '4px',
+      fontSize: '14px',
+      width: '100%',
+    },
+    propCard: {
+      backgroundColor: colors.black,
+      borderRadius: '8px',
+      padding: '30px',
+      marginBottom: '20px',
+      border: `2px solid ${colors.orange}`,
+    },
+    propText: {
+      fontSize: '20px',
+      lineHeight: 1.6,
+      marginBottom: '20px',
+    },
+    propMeta: {
+      fontSize: '14px',
+      color: colors.grey,
+      marginBottom: '20px',
+    },
+    actionButtons: {
+      display: 'flex',
+      gap: '15px',
+      flexWrap: 'wrap',
+    },
+    graphContainer: {
+      width: '100%',
+      height: '600px',
+      backgroundColor: colors.black,
+      borderRadius: '8px',
+      border: `2px solid ${colors.purple}`,
+    },
+    statBox: {
+      display: 'inline-block',
+      padding: '15px 25px',
+      backgroundColor: colors.grey + '33',
+      borderRadius: '8px',
+      marginRight: '15px',
+      marginBottom: '15px',
+      textAlign: 'center',
+    },
+  };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'system-ui, -apple-system, sans-serif', backgroundColor: '#fafafa', minHeight: '100vh' }}>
-      <h1 style={{ textAlign: 'center', marginBottom: '10px' }}>📊 Experimental Unit Triple Builder</h1>
-      <p style={{ textAlign: 'center', color: '#666', marginBottom: '30px' }}>Build knowledge graphs with Wikidata integration</p>
+    <div style={styles.container}>
+      <header style={styles.header}>
+        <h1 style={styles.title}>Experimental Unit Worldview Mapper</h1>
+        <nav style={styles.nav}>
+          <button style={styles.navButton(view === 'home')} onClick={() => setView('home')}>Home</button>
+          <button style={styles.navButton(view === 'import')} onClick={() => setView('import')}>Import</button>
+          <button style={styles.navButton(view === 'review')} onClick={() => { setView('review'); setCurrentPropIndex(0); }}>Review</button>
+          <button style={styles.navButton(view === 'graph')} onClick={() => setView('graph')}>Graph</button>
+          <button style={styles.navButton(view === 'settings')} onClick={() => setView('settings')}>Settings</button>
+        </nav>
+      </header>
 
-      {!sessionStarted ? (
-        <div style={{ maxWidth: '600px', margin: '0 auto', backgroundColor: 'white', padding: '30px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-          <p style={{ marginBottom: '15px', fontSize: '16px' }}>Welcome! Give a label to your session:</p>
-          <input
-            type="text"
-            placeholder="e.g., my-research-notes"
-            value={sessionLabel}
-            onChange={(e) => setSessionLabel(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && startSession()}
-            style={{ padding: '10px', marginRight: '10px', width: '250px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }}
-          />
-          <button onClick={startSession} style={{ padding: '10px 20px', cursor: 'pointer', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', fontWeight: '500' }}>
-            Start Session
-          </button>
-          <button onClick={importGraph} style={{ padding: '10px 20px', marginLeft: '10px', cursor: 'pointer', backgroundColor: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', fontWeight: '500' }}>
-            Load Graph(s)
-          </button>
-          <p style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
-            Or load existing graph files to continue where you left off.
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '20px', maxWidth: '1600px', margin: '0 auto' }}>
-          {/* Main content */}
-          <div>
-            <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '20px' }}>
-              <h2 style={{ marginBottom: '15px', fontSize: '20px' }}>Build a Triple</h2>
-              <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
-                Session: <strong>{sessionLabel}</strong> | Triples: <strong>{triples.length}</strong>
+      <main style={styles.main}>
+        {/* HOME VIEW */}
+        {view === 'home' && (
+          <>
+            <div style={styles.card}>
+              <h2 style={{ marginTop: 0, color: colors.orange }}>Welcome to the Worldview Mapper</h2>
+              <p style={{ fontSize: '16px', lineHeight: 1.6, color: colors.white }}>
+                This tool helps you discover and map your beliefs by extracting propositions from your writing.
+                Paste in text, and the system will identify the claims and beliefs embedded in your words.
+                Then you can affirm, reject, or nuance each one to build your personal worldview graph.
               </p>
 
-              {/* Entity 1 */}
-              <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-                <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Entity 1 (Subject):</label>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                  <input
-                    type="text"
-                    placeholder="Search Wikidata entities..."
-                    value={e1Query}
-                    onChange={(e) => setE1Query(e.target.value)}
-                    style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }}
-                  />
-                  <button onClick={() => createNewNode('e1')} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: '#FF9800', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                    + New Entity
-                  </button>
+              <div style={{ marginTop: '30px' }}>
+                <div style={styles.statBox}>
+                  <div style={{ fontSize: '32px', fontWeight: 'bold', color: colors.orange }}>{stats.total}</div>
+                  <div>Total Propositions</div>
                 </div>
-                {e1Selected && <p style={{ marginTop: '8px', color: '#4CAF50', fontWeight: '600', fontSize: '14px' }}>✓ {e1Selected.label}</p>}
-                {e1Results.length > 0 && (
-                  <ul style={{ listStyle: 'none', padding: '0', backgroundColor: 'white', borderRadius: '4px', maxHeight: '150px', overflow: 'auto', marginTop: '8px', border: '1px solid #ddd' }}>
-                    {e1Results.map((item) => (
-                      <li
-                        key={item.id}
-                        onClick={() => selectResult(item, 'e1')}
-                        style={{ cursor: 'pointer', padding: '8px', borderBottom: '1px solid #f0f0f0', fontSize: '14px' }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                      >
-                        <strong>{item.label}</strong> <span style={{ fontSize: '12px', color: '#999' }}>({item.id})</span>
-                        {item.description && <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>{item.description}</div>}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div style={styles.statBox}>
+                  <div style={{ fontSize: '32px', fontWeight: 'bold', color: colors.pending }}>{stats.pending}</div>
+                  <div>Pending Review</div>
+                </div>
+                <div style={styles.statBox}>
+                  <div style={{ fontSize: '32px', fontWeight: 'bold', color: colors.affirmed }}>{stats.affirmed}</div>
+                  <div>Affirmed</div>
+                </div>
+                <div style={styles.statBox}>
+                  <div style={{ fontSize: '32px', fontWeight: 'bold', color: colors.rejected }}>{stats.rejected}</div>
+                  <div>Rejected</div>
+                </div>
+                <div style={styles.statBox}>
+                  <div style={{ fontSize: '32px', fontWeight: 'bold', color: colors.nuanced }}>{stats.nuanced}</div>
+                  <div>Nuanced</div>
+                </div>
               </div>
 
-              {/* Property */}
-              <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-                <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Property (Relationship):</label>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                  <input
-                    type="text"
-                    placeholder="Search Wikidata properties..."
-                    value={pQuery}
-                    onChange={(e) => setPQuery(e.target.value)}
-                    style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }}
-                  />
-                  <button onClick={() => createNewNode('property')} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: '#FF9800', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                    + New Property
+              <div style={{ marginTop: '30px', display: 'flex', gap: '15px' }}>
+                {stats.pending > 0 && (
+                  <button style={styles.button(colors.orange)} onClick={() => { setView('review'); setFilterStatus('pending'); }}>
+                    Review {stats.pending} Pending
                   </button>
-                </div>
-                {pSelected && <p style={{ marginTop: '8px', color: '#4CAF50', fontWeight: '600', fontSize: '14px' }}>✓ {pSelected.label}</p>}
-                {pResults.length > 0 && (
-                  <ul style={{ listStyle: 'none', padding: '0', backgroundColor: 'white', borderRadius: '4px', maxHeight: '150px', overflow: 'auto', marginTop: '8px', border: '1px solid #ddd' }}>
-                    {pResults.map((item) => (
-                      <li
-                        key={item.id}
-                        onClick={() => selectResult(item, 'p')}
-                        style={{ cursor: 'pointer', padding: '8px', borderBottom: '1px solid #f0f0f0', fontSize: '14px' }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                      >
-                        <strong>{item.label}</strong> <span style={{ fontSize: '12px', color: '#999' }}>({item.id})</span>
-                        {item.description && <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>{item.description}</div>}
-                      </li>
-                    ))}
-                  </ul>
+                )}
+                <button style={styles.button(colors.purple)} onClick={() => setView('import')}>
+                  Import More Text
+                </button>
+                {stats.total > 0 && (
+                  <button style={styles.button(colors.forest)} onClick={() => setView('graph')}>
+                    View Graph
+                  </button>
                 )}
               </div>
+            </div>
+          </>
+        )}
 
-              {/* Entity 2 */}
-              <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-                <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Entity 2 (Object):</label>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                  <input
-                    type="text"
-                    placeholder="Search Wikidata entities..."
-                    value={e2Query}
-                    onChange={(e) => setE2Query(e.target.value)}
-                    style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }}
-                  />
-                  <button onClick={() => createNewNode('entity')} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: '#FF9800', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                    + New Entity
+        {/* IMPORT VIEW */}
+        {view === 'import' && (
+          <>
+            <div style={styles.card}>
+              <h2 style={{ marginTop: 0, color: colors.orange }}>Import Text</h2>
+              <p>Paste in your writing - blog posts, essays, journals, manifestos - and the system will extract the propositions and beliefs embedded within.</p>
+
+              {!apiKey && (
+                <div style={{ padding: '15px', backgroundColor: colors.red + '33', borderRadius: '4px', marginBottom: '20px' }}>
+                  You need to set an API key in Settings before importing.
+                  <button style={{ ...styles.button(colors.purple), marginLeft: '15px', padding: '8px 16px' }} onClick={() => setView('settings')}>
+                    Go to Settings
                   </button>
                 </div>
-                {e2Selected && <p style={{ marginTop: '8px', color: '#4CAF50', fontWeight: '600', fontSize: '14px' }}>✓ {e2Selected.label}</p>}
-                {e2Results.length > 0 && (
-                  <ul style={{ listStyle: 'none', padding: '0', backgroundColor: 'white', borderRadius: '4px', maxHeight: '150px', overflow: 'auto', marginTop: '8px', border: '1px solid #ddd' }}>
-                    {e2Results.map((item) => (
-                      <li
-                        key={item.id}
-                        onClick={() => selectResult(item, 'e2')}
-                        style={{ cursor: 'pointer', padding: '8px', borderBottom: '1px solid #f0f0f0', fontSize: '14px' }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                      >
-                        <strong>{item.label}</strong> <span style={{ fontSize: '12px', color: '#999' }}>({item.id})</span>
-                        {item.description && <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>{item.description}</div>}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+              )}
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '10px' }}>
+                  <strong>Upload files:</strong>
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  accept=".txt,.html,.md"
+                  onChange={handleFileUpload}
+                  style={{ color: colors.white }}
+                />
               </div>
 
-              <button onClick={addTriple} style={{ padding: '12px 32px', cursor: 'pointer', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', fontSize: '16px', fontWeight: '600', width: '100%' }}>
-                ➕ Add Triple to Graph
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '10px' }}>
+                  <strong>Or paste text directly:</strong>
+                </label>
+                <textarea
+                  style={styles.textarea}
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  placeholder="Paste your text here... The more you paste, the more propositions will be extracted. Works best with essays, blog posts, and substantive writing."
+                />
+              </div>
+
+              {importError && (
+                <div style={{ padding: '15px', backgroundColor: colors.red + '33', borderRadius: '4px', marginBottom: '20px' }}>
+                  {importError}
+                </div>
+              )}
+
+              {importProgress && (
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{ marginBottom: '10px' }}>{importProgress.status}</div>
+                  {importProgress.total > 0 && (
+                    <div style={{ height: '8px', backgroundColor: colors.grey, borderRadius: '4px' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${(importProgress.current / importProgress.total) * 100}%`,
+                        backgroundColor: colors.orange,
+                        borderRadius: '4px',
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button
+                style={styles.button(colors.orange)}
+                onClick={handleImport}
+                disabled={!importText.trim() || !apiKey || importProgress}
+              >
+                {importProgress ? 'Processing...' : 'Extract Propositions'}
               </button>
             </div>
+          </>
+        )}
 
-            <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '20px' }}>
-              <h2 style={{ marginBottom: '15px', fontSize: '20px' }}>All Triples ({triples.length})</h2>
-              {triples.length === 0 ? (
-                <p style={{ color: '#999', textAlign: 'center', padding: '20px' }}>No triples yet. Start building your knowledge graph above!</p>
-              ) : (
-                <ul style={{ listStyle: 'none', padding: '0' }}>
-                  {triples.map((t, idx) => (
-                    <li key={idx} style={{ padding: '12px', backgroundColor: '#f9f9f9', borderRadius: '4px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: '4px solid #2196F3' }}>
-                      <span style={{ fontSize: '14px' }}>
-                        <strong>{nodesMap[t.e1Id]}</strong> → <em style={{ color: '#2196F3' }}>{nodesMap[t.pId]}</em> → <strong>{nodesMap[t.e2Id]}</strong>
-                      </span>
-                      <button onClick={() => removeTriple(idx)} style={{ padding: '4px 12px', cursor: 'pointer', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '3px', fontSize: '12px' }}>
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+        {/* REVIEW VIEW */}
+        {view === 'review' && (
+          <>
+            <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <span>Filter:</span>
+              {['pending', 'affirmed', 'rejected', 'nuanced', 'all'].map(status => (
+                <button
+                  key={status}
+                  style={{
+                    ...styles.navButton(filterStatus === status),
+                    backgroundColor: filterStatus === status
+                      ? (status === 'affirmed' ? colors.affirmed
+                        : status === 'rejected' ? colors.rejected
+                        : status === 'nuanced' ? colors.nuanced
+                        : status === 'pending' ? colors.pending
+                        : colors.purple)
+                      : 'transparent',
+                  }}
+                  onClick={() => { setFilterStatus(status); setCurrentPropIndex(0); }}
+                >
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                  {status !== 'all' && ` (${stats[status]})`}
+                </button>
+              ))}
             </div>
 
-            <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h2 style={{ fontSize: '20px', margin: 0 }}>Graph Visualization</h2>
+            {sortedProps.length === 0 ? (
+              <div style={styles.card}>
+                <p>No propositions to review. <button style={{ color: colors.orange, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setView('import')}>Import some text</button> to get started.</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom: '20px', color: colors.grey }}>
+                  Proposition {currentPropIndex + 1} of {sortedProps.length}
+                  {currentProp?.foundational && <span style={{ marginLeft: '10px', color: colors.neonYellow }}>FOUNDATIONAL</span>}
+                  {currentProp?.category && <span style={{ marginLeft: '10px', color: colors.oceanBlue }}>{currentProp.category}</span>}
+                </div>
+
+                <div style={styles.propCard}>
+                  <div style={styles.propText}>
+                    "{currentProp?.text}"
+                  </div>
+
+                  {currentProp?.sourceExcerpt && (
+                    <div style={styles.propMeta}>
+                      <em>From: "{currentProp.sourceExcerpt}"</em>
+                    </div>
+                  )}
+
+                  {filterStatus === 'pending' && (
+                    <div style={styles.actionButtons}>
+                      <button style={styles.button(colors.affirmed)} onClick={handleAffirm}>
+                        Affirm - I believe this
+                      </button>
+                      <button style={styles.button(colors.rejected)} onClick={handleReject}>
+                        Reject - I don't believe this
+                      </button>
+                      <button
+                        style={styles.button(colors.nuanced)}
+                        onClick={() => {
+                          const nuance = prompt('How would you nuance or modify this belief?');
+                          if (nuance) handleNuance(nuance);
+                        }}
+                      >
+                        Nuance - It's complicated
+                      </button>
+                      <button
+                        style={styles.button(colors.grey)}
+                        onClick={() => setCurrentPropIndex(Math.min(currentPropIndex + 1, sortedProps.length - 1))}
+                      >
+                        Skip for now
+                      </button>
+                    </div>
+                  )}
+
+                  {currentProp?.status === 'nuanced' && currentProp?.nuance && (
+                    <div style={{ marginTop: '20px', padding: '15px', backgroundColor: colors.nuanced + '22', borderRadius: '4px' }}>
+                      <strong>Your nuance:</strong> {currentProp.nuance}
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={() => exportGraph('json')} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px' }}>
-                    📥 Export JSON
+                  <button
+                    style={styles.button(colors.grey)}
+                    onClick={() => setCurrentPropIndex(Math.max(0, currentPropIndex - 1))}
+                    disabled={currentPropIndex === 0}
+                  >
+                    Previous
                   </button>
-                  <button onClick={() => exportGraph('jsonld')} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px' }}>
-                    📥 Export JSON-LD
+                  <button
+                    style={styles.button(colors.grey)}
+                    onClick={() => setCurrentPropIndex(Math.min(sortedProps.length - 1, currentPropIndex + 1))}
+                    disabled={currentPropIndex >= sortedProps.length - 1}
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* GRAPH VIEW */}
+        {view === 'graph' && (
+          <>
+            <div style={{ marginBottom: '20px' }}>
+              <h2 style={{ marginTop: 0, color: colors.orange }}>Worldview Graph</h2>
+              <p>Your beliefs visualized. Diamonds are foundational beliefs. Colors show your response: green = affirmed, red = rejected, orange = nuanced.</p>
+            </div>
+
+            {worldview.propositions.filter(p => p.status !== 'pending').length === 0 ? (
+              <div style={styles.card}>
+                <p>Review some propositions first to see your worldview graph.</p>
+                <button style={styles.button(colors.orange)} onClick={() => setView('review')}>
+                  Go to Review
+                </button>
+              </div>
+            ) : (
+              <div ref={graphRef} style={styles.graphContainer} />
+            )}
+          </>
+        )}
+
+        {/* SETTINGS VIEW */}
+        {view === 'settings' && (
+          <>
+            <div style={styles.card}>
+              <h2 style={{ marginTop: 0, color: colors.orange }}>Settings</h2>
+
+              <div style={{ marginBottom: '30px' }}>
+                <h3>API Configuration</h3>
+                <p style={{ color: colors.grey }}>
+                  Your API key is stored only in your browser - it's never sent to any server except the AI provider you choose.
+                </p>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', marginBottom: '10px' }}>Provider:</label>
+                  <select
+                    value={apiProvider}
+                    onChange={(e) => setApiProvider(e.target.value)}
+                    style={{ ...styles.input, width: 'auto', minWidth: '200px' }}
+                  >
+                    <option value="anthropic">Anthropic (Claude)</option>
+                    <option value="openai">OpenAI (GPT-4)</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', marginBottom: '10px' }}>API Key:</label>
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={apiProvider === 'anthropic' ? 'sk-ant-...' : 'sk-...'}
+                    style={styles.input}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '30px' }}>
+                <h3>Data Management</h3>
+
+                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                  <button style={styles.button(colors.forest)} onClick={exportWorldview}>
+                    Export Worldview
+                  </button>
+
+                  <label style={styles.button(colors.oceanBlue)}>
+                    Import Worldview
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={importWorldview}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+
+                  <button
+                    style={styles.button(colors.red)}
+                    onClick={() => {
+                      if (confirm('Are you sure you want to clear all propositions? This cannot be undone.')) {
+                        setWorldview({
+                          id: generateId(),
+                          label: 'My Worldview',
+                          propositions: [],
+                          connections: [],
+                          metadata: { createdAt: Date.now(), postCount: 0 }
+                        });
+                      }
+                    }}
+                  >
+                    Clear All Data
                   </button>
                 </div>
               </div>
-              <div ref={graphRef} style={{ width: '100%', height: '500px', backgroundColor: '#fafafa', borderRadius: '8px', border: '2px solid #e0e0e0' }} />
-              {triples.length === 0 && (
-                <p style={{ textAlign: 'center', color: '#999', marginTop: '20px' }}>Add triples to see the graph visualization</p>
-              )}
             </div>
-          </div>
-
-          {/* Sidebar */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', position: 'sticky', top: '20px' }}>
-              <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: '600', color: '#333' }}>📍 Entities ({entities.length})</h3>
-              {entities.length === 0 ? (
-                <p style={{ fontSize: '14px', color: '#999' }}>No entities yet</p>
-              ) : (
-                <ul style={{ listStyle: 'none', padding: '0', margin: '0', maxHeight: '250px', overflowY: 'auto', fontSize: '14px' }}>
-                  {entities.map((item, idx) => (
-                    <li key={idx} style={{ marginBottom: '6px', padding: '8px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
-                      {item.label}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-              <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: '600', color: '#333' }}>🔗 Properties ({properties.length})</h3>
-              {properties.length === 0 ? (
-                <p style={{ fontSize: '14px', color: '#999' }}>No properties yet</p>
-              ) : (
-                <ul style={{ listStyle: 'none', padding: '0', margin: '0', maxHeight: '250px', overflowY: 'auto', fontSize: '14px' }}>
-                  {properties.map((item, idx) => (
-                    <li key={idx} style={{ marginBottom: '6px', padding: '8px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
-                      {item.label}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </main>
     </div>
   );
 }
