@@ -29,3 +29,6 @@ yarn-error.log*
 *.swp
 *.swo
 *~
+substack-export/
+node_modules/
+dist/
