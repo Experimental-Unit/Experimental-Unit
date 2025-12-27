@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import substackPosts from './substack-posts.json';
 
 // Color palette from TECHNICAL.md
 const colors = {
@@ -294,6 +295,97 @@ export default function App() {
     }
 
     setImportText(allText.trim());
+  };
+
+  // Process bundled Substack posts
+  const [substackProgress, setSubstackProgress] = useState(null);
+  const [substackProcessing, setSubstackProcessing] = useState(false);
+
+  const handleProcessSubstack = async () => {
+    if (!apiKey) {
+      alert('Please set your API key in Settings first');
+      setView('settings');
+      return;
+    }
+
+    setSubstackProcessing(true);
+    setSubstackProgress({ current: 0, total: substackPosts.length, status: 'Starting...' });
+
+    const allPropositions = [];
+    const processedPostIds = new Set(
+      worldview.propositions.map(p => p.sourceId).filter(Boolean)
+    );
+
+    // Filter out already processed posts
+    const postsToProcess = substackPosts.filter(p => !processedPostIds.has(p.id));
+
+    for (let i = 0; i < postsToProcess.length; i++) {
+      const post = postsToProcess[i];
+      setSubstackProgress({
+        current: i + 1,
+        total: postsToProcess.length,
+        status: `Processing: ${post.title.substring(0, 40)}...`
+      });
+
+      try {
+        // Take first 6000 chars of each post
+        const textChunk = post.text.substring(0, 6000);
+        const props = await extractPropositions(textChunk, apiKey, apiProvider);
+
+        for (const prop of props) {
+          allPropositions.push({
+            id: generateId(),
+            text: prop.text,
+            foundational: prop.foundational,
+            category: prop.category,
+            sourceExcerpt: prop.sourceExcerpt,
+            sourceId: post.id,
+            sourceTitle: post.title,
+            status: 'pending',
+            nuance: '',
+            confidence: 0.5,
+            createdAt: Date.now(),
+          });
+        }
+
+        // Save progress every 10 posts
+        if (allPropositions.length > 0 && i % 10 === 9) {
+          setWorldview(prev => ({
+            ...prev,
+            propositions: [...prev.propositions, ...allPropositions.splice(0)],
+            metadata: {
+              ...prev.metadata,
+              postCount: i + 1,
+            }
+          }));
+        }
+      } catch (err) {
+        console.error(`Error processing post ${post.id}:`, err);
+      }
+
+      // Delay to avoid rate limiting
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    // Save any remaining propositions
+    if (allPropositions.length > 0) {
+      setWorldview(prev => ({
+        ...prev,
+        propositions: [...prev.propositions, ...allPropositions],
+        metadata: {
+          ...prev.metadata,
+          postCount: postsToProcess.length,
+        }
+      }));
+    }
+
+    setSubstackProgress({ current: postsToProcess.length, total: postsToProcess.length, status: 'Done!' });
+    setSubstackProcessing(false);
+
+    setTimeout(() => {
+      setSubstackProgress(null);
+      setView('review');
+    }, 2000);
   };
 
   // Update proposition status
@@ -611,14 +703,51 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Substack Processing Section */}
+              <div style={{ marginTop: '30px', padding: '20px', backgroundColor: colors.purple + '22', borderRadius: '8px', border: `2px solid ${colors.purple}` }}>
+                <h3 style={{ marginTop: 0, color: colors.purple }}>Your Substack: {substackPosts.length} posts bundled</h3>
+
+                {substackProgress ? (
+                  <div>
+                    <div style={{ marginBottom: '10px' }}>{substackProgress.status}</div>
+                    <div style={{ height: '8px', backgroundColor: colors.grey, borderRadius: '4px' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${(substackProgress.current / substackProgress.total) * 100}%`,
+                        backgroundColor: colors.orange,
+                        borderRadius: '4px',
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                    <div style={{ marginTop: '10px', fontSize: '14px', color: colors.grey }}>
+                      {substackProgress.current} / {substackProgress.total} posts
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{ marginBottom: '15px' }}>
+                      Click below to extract propositions from your Experimental Unit Substack posts.
+                      This will take a while (about 1 second per post) and use your API credits.
+                    </p>
+                    <button
+                      style={styles.button(colors.orange)}
+                      onClick={handleProcessSubstack}
+                      disabled={substackProcessing}
+                    >
+                      Process My Substack ({substackPosts.length} posts)
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div style={{ marginTop: '30px', display: 'flex', gap: '15px' }}>
                 {stats.pending > 0 && (
                   <button style={styles.button(colors.orange)} onClick={() => { setView('review'); setFilterStatus('pending'); }}>
                     Review {stats.pending} Pending
                   </button>
                 )}
-                <button style={styles.button(colors.purple)} onClick={() => setView('import')}>
-                  Import More Text
+                <button style={styles.button(colors.grey)} onClick={() => setView('import')}>
+                  Import Other Text
                 </button>
                 {stats.total > 0 && (
                   <button style={styles.button(colors.forest)} onClick={() => setView('graph')}>
