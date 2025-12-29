@@ -1,134 +1,135 @@
-# 📊 Experimental Unit Triple Builder
+# Obsidian Knowledge Graph Builder
 
-A modern React application for building knowledge graphs with Wikidata integration. Create, visualize, and export semantic triples in JSON and JSON-LD formats.
+A web application that transforms your documents into an interconnected Obsidian knowledge vault using AI-powered extraction.
 
 ## Features
 
-- 🔍 **Wikidata Integration**: Search and select entities and properties from Wikidata
-- ➕ **Custom Nodes**: Create your own entities and properties
-- 📊 **Live Visualization**: Interactive graph visualization using vis-network
-- 💾 **Import/Export**: Save and load graphs in JSON format
-- 🌐 **Semantic Web Ready**: Export to JSON-LD for linked data applications
-- 🎨 **Clean UI**: Modern, intuitive interface
+- **Upload ZIP files** containing your documents (.txt, .md, .html)
+- **Choose your AI provider:**
+  - **OpenAI GPT-4o-mini** - Cost-effective bulk processing (~$3-5 per 1000 docs)
+  - **Anthropic Claude Opus 4.5** - Premium quality extraction (~$100-110 per 1000 docs)
+- **Automatic metadata extraction:**
+  - Inferred titles
+  - Dates (when detectable)
+  - 3-5 sentence summaries
+  - Key concepts and theoretical frameworks
+  - Key entities (people, organizations, works)
+  - Significant quotes with context
+  - Cross-document connections
+- **Generate structured Obsidian vault** with:
+  - Article notes with full metadata
+  - Concept notes aggregating mentions
+  - Entity notes with appearances
+  - Index notes for navigation
+  - Home page with statistics
+- **Download as ZIP** ready to open in Obsidian
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 
-- Node.js (v16 or higher)
-- npm or yarn
-- A GitHub account (for deployment)
+- Node.js 18 or higher
+- OpenAI API key or Anthropic API key
 
 ### Installation
 
-1. Clone this repository:
-```bash
-git clone https://github.com/YOUR_USERNAME/triple-builder.git
-cd triple-builder
-```
-
-2. Install dependencies:
 ```bash
 npm install
 ```
 
-3. Start the development server:
+### Running the Server
+
 ```bash
-npm run dev
+npm start
 ```
 
-The app will open at `http://localhost:3000`
+The server will start at http://localhost:3000
 
-## Deployment to GitHub Pages
+### Usage
 
-### Step 1: Update Configuration
+1. Open http://localhost:3000 in your browser
+2. Select your AI provider (OpenAI or Anthropic)
+3. Enter your API key
+4. Upload a ZIP file containing your documents
+5. Wait for processing (progress is shown in real-time)
+6. Download your Obsidian vault
 
-1. Edit `package.json` and update the homepage:
-```json
-"homepage": "https://YOUR_GITHUB_USERNAME.github.io/triple-builder"
+## Supported File Types
+
+- `.txt` - Plain text files
+- `.md` / `.markdown` - Markdown files (frontmatter preserved)
+- `.html` - HTML files (tags stripped automatically)
+
+## AI Provider Comparison
+
+| Feature | OpenAI GPT-4o-mini | Anthropic Claude Opus 4.5 |
+|---------|-------------------|---------------------------|
+| Cost per 1000 docs | ~$3-5 | ~$100-110 |
+| Speed | Fast | Slower |
+| Quality | Good | Premium |
+| Best for | Bulk processing | Complex philosophical texts |
+
+### Cost Breakdown
+
+**OpenAI GPT-4o-mini:**
+- Input: $0.15 per 1M tokens
+- Output: $0.60 per 1M tokens
+
+**Anthropic Claude Opus 4.5:**
+- Input: $15.00 per 1M tokens
+- Output: $75.00 per 1M tokens
+
+## Project Structure
+
 ```
-
-2. Edit `vite.config.js` and update the base:
-```javascript
-base: '/triple-builder/' // or whatever your repo name is
-```
-
-### Step 2: Deploy
-
-1. Build and deploy:
-```bash
-npm run deploy
-```
-
-This will:
-- Build your app
-- Create a `gh-pages` branch
-- Push the built files to GitHub Pages
-
-### Step 3: Enable GitHub Pages
-
-1. Go to your repository on GitHub
-2. Navigate to Settings → Pages
-3. Under "Source", select the `gh-pages` branch
-4. Click Save
-
-Your app will be live at: `https://YOUR_GITHUB_USERNAME.github.io/triple-builder/`
-
-## Usage
-
-### Starting a Session
-
-1. Enter a session label (e.g., "my-research")
-2. Click "Start Session"
-
-### Building Triples
-
-1. **Entity 1 (Subject)**: Search for or create an entity
-2. **Property (Relationship)**: Search for or create a property
-3. **Entity 2 (Object)**: Search for or create an entity
-4. Click "Add Triple to Graph"
-
-### Managing Your Graph
-
-- **View**: See all triples listed and visualized in the graph
-- **Remove**: Click "Remove" on any triple to delete it
-- **Export**: Download as JSON or JSON-LD
-- **Import**: Load previously saved graphs
-
-## File Structure
-```
-triple-builder/
+├── server/
+│   ├── index.js       # Express server
+│   ├── processor.js   # ZIP extraction and orchestration
+│   ├── extract.js     # AI metadata extraction (OpenAI + Anthropic)
+│   ├── ontology.js    # Seed ontology management
+│   ├── templates.js   # Obsidian note generators
+│   └── vault.js       # Vault packaging
 ├── public/
-│   └── index.html          # HTML template
-├── src/
-│   ├── App.jsx            # Main application component
-│   ├── index.js           # React entry point
-│   └── index.css          # Global styles
-├── package.json           # Dependencies and scripts
-├── vite.config.js         # Vite configuration
-└── README.md             # This file
+│   └── index.html     # Frontend interface
+├── seed-ontology/     # Domain-specific concepts and entities
+│   ├── ontology.json
+│   ├── concepts.md
+│   └── entities.md
+└── package.json
 ```
 
-## Built With
+## Seed Ontology
 
-- [React 18](https://react.dev/) - UI framework
-- [Vite](https://vitejs.dev/) - Build tool
-- [vis-network](https://visjs.github.io/vis-network/docs/network/) - Graph visualization
-- [Wikidata API](https://www.wikidata.org/wiki/Wikidata:Data_access) - Knowledge base
+The `seed-ontology/` folder contains domain-specific concepts and entities that help the AI provide more accurate extractions. Edit these files to customize for your domain:
 
-## Contributing
+- `ontology.json` - Entity types and aliases
+- `concepts.md` - Known theoretical frameworks
+- `entities.md` - Known people, organizations, and works
 
-Contributions are welcome! Feel free to open issues or submit pull requests.
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Server port | 3000 |
+
+API keys are provided through the web interface and are not stored.
+
+## Rate Limiting
+
+The application includes built-in rate limiting:
+
+**OpenAI:**
+- 5 concurrent files per batch
+- 300ms delay between files
+- 1.5s delay between batches
+
+**Anthropic:**
+- 3 concurrent files per batch
+- 500ms delay between files
+- 2s delay between batches
+
+This prevents hitting API rate limits while maintaining good throughput.
 
 ## License
 
-MIT License - feel free to use this project for any purpose.
-
-## Author
-
-Æ (Adam Stephen Wadley)
-
-## Acknowledgments
-
-- Wikidata community for the amazing knowledge base
-- vis.js team for the graph visualization library
+MIT

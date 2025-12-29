@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Obsidian Knowledge Graph Builder</title>
+  <style>
+    :root {
+      --primary: #7c3aed;
+      --primary-dark: #5b21b6;
+      --secondary: #f97316;
+      --anthropic: #d97706;
+      --bg-dark: #1a1a2e;
+      --bg-card: #16213e;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --error: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, var(--bg-dark) 0%, #0f0f23 100%);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .label-hint {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: normal;
+    }
+
+    input[type="password"],
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 2px solid #334155;
+      border-radius: 8px;
+      background: #0f172a;
+      color: var(--text);
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .provider-toggle {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .provider-btn {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: 2px solid #334155;
+      border-radius: 8px;
+      background: #0f172a;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .provider-btn:hover {
+      border-color: #475569;
+    }
+
+    .provider-btn.active {
+      border-color: var(--primary);
+      background: rgba(124, 58, 237, 0.15);
+      color: var(--text);
+    }
+
+    .provider-btn.active.anthropic {
+      border-color: var(--anthropic);
+      background: rgba(217, 119, 6, 0.15);
+    }
+
+    .provider-info {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+    }
+
+    .provider-info.anthropic {
+      background: rgba(217, 119, 6, 0.1);
+      border-left: 3px solid var(--anthropic);
+    }
+
+    .dropzone {
+      border: 2px dashed #475569;
+      border-radius: 12px;
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(124, 58, 237, 0.05);
+    }
+
+    .dropzone:hover,
+    .dropzone.dragover {
+      border-color: var(--primary);
+      background: rgba(124, 58, 237, 0.1);
+    }
+
+    .dropzone-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .dropzone-text {
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .dropzone-formats {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    .selected-file {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: rgba(16, 185, 129, 0.1);
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+
+    .selected-file-icon {
+      font-size: 1.5rem;
+    }
+
+    .selected-file-name {
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .selected-file-remove {
+      background: none;
+      border: none;
+      color: var(--error);
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 0.25rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.875rem 2rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+      color: white;
+    }
+
+    .btn-success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    }
+
+    /* Progress section */
+    .progress-section {
+      display: none;
+    }
+
+    .progress-section.active {
+      display: block;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .progress-bar-container {
+      height: 8px;
+      background: #334155;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .progress-status {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid transparent;
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Results section */
+    .results-section {
+      display: none;
+    }
+
+    .results-section.active {
+      display: block;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      background: rgba(124, 58, 237, 0.1);
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .success-message {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem;
+      background: rgba(16, 185, 129, 0.1);
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      color: var(--success);
+    }
+
+    .error-message {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem;
+      background: rgba(239, 68, 68, 0.1);
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      color: var(--error);
+    }
+
+    /* Info section */
+    .info-section {
+      margin-top: 2rem;
+    }
+
+    .info-title {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    .info-list {
+      list-style: none;
+    }
+
+    .info-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .info-list li::before {
+      content: "→";
+      color: var(--primary);
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 1rem;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .provider-toggle {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Obsidian Knowledge Graph Builder</h1>
+      <p class="subtitle">Transform your documents into an interconnected knowledge vault</p>
+    </header>
+
+    <!-- Upload Form -->
+    <div class="card" id="uploadSection">
+      <form id="uploadForm">
+        <div class="form-group">
+          <label>AI Provider</label>
+          <div class="provider-toggle">
+            <button type="button" class="provider-btn active" data-provider="openai">
+              OpenAI GPT-4o-mini
+            </button>
+            <button type="button" class="provider-btn" data-provider="anthropic">
+              Anthropic Claude Opus 4.5
+            </button>
+          </div>
+          <div class="provider-info" id="providerInfo">
+            Cost-effective bulk processing (~$3-5 per 1000 docs)
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="apiKey" id="apiKeyLabel">
+            OpenAI API Key
+            <span class="label-hint">(required for AI extraction)</span>
+          </label>
+          <input
+            type="password"
+            id="apiKey"
+            name="apiKey"
+            placeholder="sk-..."
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Upload ZIP File</label>
+          <div class="dropzone" id="dropzone">
+            <div class="dropzone-icon">📁</div>
+            <div class="dropzone-text">Drop your ZIP file here or click to browse</div>
+            <div class="dropzone-formats">Supports .txt, .md, .html files</div>
+          </div>
+          <input type="file" id="fileInput" class="file-input" accept=".zip">
+          <div class="selected-file" id="selectedFile" style="display: none;">
+            <span class="selected-file-icon">📦</span>
+            <span class="selected-file-name" id="fileName"></span>
+            <button type="button" class="selected-file-remove" id="removeFile">✕</button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+          <span id="submitText">Build Knowledge Graph</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Progress Section -->
+    <div class="card progress-section" id="progressSection">
+      <div class="progress-header">
+        <h3>Processing Documents</h3>
+        <div class="spinner"></div>
+      </div>
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="progress-status" id="progressStatus">Initializing...</div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="card results-section" id="resultsSection">
+      <div class="success-message" id="successMessage">
+        <span>✓</span>
+        <span>Knowledge graph generated successfully!</span>
+      </div>
+      <div class="error-message" id="errorMessage" style="display: none;">
+        <span>✕</span>
+        <span id="errorText">An error occurred</span>
+      </div>
+
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-value" id="statArticles">0</div>
+          <div class="stat-label">Articles</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statConcepts">0</div>
+          <div class="stat-label">Concepts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statEntities">0</div>
+          <div class="stat-label">Entities</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statWords">0</div>
+          <div class="stat-label">Total Words</div>
+        </div>
+      </div>
+
+      <button class="btn btn-success" id="downloadBtn">
+        📥 Download Obsidian Vault
+      </button>
+
+      <button class="btn btn-primary" id="newUploadBtn" style="margin-top: 1rem; background: #334155;">
+        Process Another File
+      </button>
+    </div>
+
+    <!-- Info Section -->
+    <div class="info-section">
+      <h4 class="info-title">How it works</h4>
+      <ul class="info-list">
+        <li>Upload a ZIP containing your text files (.txt, .md, .html)</li>
+        <li>AI analyzes each document to extract key information</li>
+        <li>Generates interconnected Obsidian notes with concepts, entities, and quotes</li>
+        <li>Download and open in Obsidian to explore your knowledge graph</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>
+    <p id="footerText">Powered by GPT-4o-mini for cost-effective bulk processing</p>
+  </footer>
+
+  <script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const selectedFile = document.getElementById('selectedFile');
+    const fileName = document.getElementById('fileName');
+    const removeFile = document.getElementById('removeFile');
+    const uploadForm = document.getElementById('uploadForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const submitText = document.getElementById('submitText');
+    const apiKeyInput = document.getElementById('apiKey');
+    const apiKeyLabel = document.getElementById('apiKeyLabel');
+    const providerInfo = document.getElementById('providerInfo');
+    const footerText = document.getElementById('footerText');
+
+    const uploadSection = document.getElementById('uploadSection');
+    const progressSection = document.getElementById('progressSection');
+    const resultsSection = document.getElementById('resultsSection');
+    const progressBar = document.getElementById('progressBar');
+    const progressStatus = document.getElementById('progressStatus');
+
+    const successMessage = document.getElementById('successMessage');
+    const errorMessage = document.getElementById('errorMessage');
+    const errorText = document.getElementById('errorText');
+    const statsGrid = document.getElementById('statsGrid');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const newUploadBtn = document.getElementById('newUploadBtn');
+
+    const providerBtns = document.querySelectorAll('.provider-btn');
+
+    let currentFile = null;
+    let currentJobId = null;
+    let currentProvider = 'openai';
+
+    // Provider toggle
+    providerBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        providerBtns.forEach(b => b.classList.remove('active', 'anthropic'));
+        btn.classList.add('active');
+
+        currentProvider = btn.dataset.provider;
+
+        if (currentProvider === 'anthropic') {
+          btn.classList.add('anthropic');
+          apiKeyLabel.innerHTML = 'Anthropic API Key <span class="label-hint">(required for AI extraction)</span>';
+          apiKeyInput.placeholder = 'sk-ant-...';
+          providerInfo.textContent = 'Premium quality extraction (~$100-110 per 1000 docs)';
+          providerInfo.classList.add('anthropic');
+          footerText.textContent = 'Powered by Claude Opus 4.5 for premium quality extraction';
+        } else {
+          apiKeyLabel.innerHTML = 'OpenAI API Key <span class="label-hint">(required for AI extraction)</span>';
+          apiKeyInput.placeholder = 'sk-...';
+          providerInfo.textContent = 'Cost-effective bulk processing (~$3-5 per 1000 docs)';
+          providerInfo.classList.remove('anthropic');
+          footerText.textContent = 'Powered by GPT-4o-mini for cost-effective bulk processing';
+        }
+
+        updateSubmitButton();
+      });
+    });
+
+    // Check if form is valid
+    function updateSubmitButton() {
+      const hasFile = currentFile !== null;
+      const hasApiKey = apiKeyInput.value.trim().length > 0;
+      submitBtn.disabled = !(hasFile && hasApiKey);
+    }
+
+    apiKeyInput.addEventListener('input', updateSubmitButton);
+
+    // Dropzone events
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0 && files[0].name.endsWith('.zip')) {
+        handleFileSelect(files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFileSelect(e.target.files[0]);
+      }
+    });
+
+    function handleFileSelect(file) {
+      currentFile = file;
+      fileName.textContent = `${file.name} (${formatSize(file.size)})`;
+      selectedFile.style.display = 'flex';
+      dropzone.style.display = 'none';
+      updateSubmitButton();
+    }
+
+    removeFile.addEventListener('click', () => {
+      currentFile = null;
+      fileInput.value = '';
+      selectedFile.style.display = 'none';
+      dropzone.style.display = 'block';
+      updateSubmitButton();
+    });
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // Form submission
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (!currentFile || !apiKeyInput.value) return;
+
+      // Show progress section
+      uploadSection.style.display = 'none';
+      progressSection.classList.add('active');
+      resultsSection.classList.remove('active');
+
+      const formData = new FormData();
+      formData.append('file', currentFile);
+      formData.append('apiKey', apiKeyInput.value);
+      formData.append('provider', currentProvider);
+
+      try {
+        // Upload file
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!uploadResponse.ok) {
+          const error = await uploadResponse.json();
+          throw new Error(error.error || 'Upload failed');
+        }
+
+        const { jobId } = await uploadResponse.json();
+        currentJobId = jobId;
+
+        // Poll for status
+        pollStatus(jobId);
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+
+    async function pollStatus(jobId) {
+      try {
+        const response = await fetch(`/api/status/${jobId}`);
+        const data = await response.json();
+
+        if (data.status === 'processing') {
+          const percent = data.total > 0 ? Math.round((data.processed / data.total) * 100) : 0;
+          progressBar.style.width = `${percent}%`;
+          progressStatus.textContent = `Processing ${data.processed} of ${data.total} files${data.currentFile ? `: ${data.currentFile}` : ''}`;
+          setTimeout(() => pollStatus(jobId), 1000);
+        } else if (data.status === 'complete') {
+          showResults(data.stats);
+        } else if (data.status === 'error') {
+          showError(data.error || 'Processing failed');
+        }
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    function showResults(stats) {
+      progressSection.classList.remove('active');
+      resultsSection.classList.add('active');
+
+      successMessage.style.display = 'flex';
+      errorMessage.style.display = 'none';
+      statsGrid.style.display = 'grid';
+
+      document.getElementById('statArticles').textContent = stats.articles || 0;
+      document.getElementById('statConcepts').textContent = stats.concepts || 0;
+      document.getElementById('statEntities').textContent = stats.entities || 0;
+      document.getElementById('statWords').textContent = (stats.totalWords || 0).toLocaleString();
+    }
+
+    function showError(message) {
+      progressSection.classList.remove('active');
+      resultsSection.classList.add('active');
+
+      successMessage.style.display = 'none';
+      errorMessage.style.display = 'flex';
+      statsGrid.style.display = 'none';
+      errorText.textContent = message;
+
+      downloadBtn.style.display = 'none';
+    }
+
+    downloadBtn.addEventListener('click', () => {
+      if (currentJobId) {
+        window.location.href = `/api/download/${currentJobId}`;
+      }
+    });
+
+    newUploadBtn.addEventListener('click', () => {
+      // Reset state
+      currentFile = null;
+      currentJobId = null;
+      fileInput.value = '';
+      selectedFile.style.display = 'none';
+      dropzone.style.display = 'block';
+      progressBar.style.width = '0%';
+      downloadBtn.style.display = 'block';
+
+      // Show upload section
+      uploadSection.style.display = 'block';
+      progressSection.classList.remove('active');
+      resultsSection.classList.remove('active');
+
+      updateSubmitButton();
+    });
+  </script>
+</body>
+</html>
