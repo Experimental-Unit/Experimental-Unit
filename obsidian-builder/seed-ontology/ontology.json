@@ -1,0 +1,68 @@
+{
+  "entityTypes": {
+    "Person": [
+      "Jean Baudrillard",
+      "Ben Zweibelson",
+      "Kenneth Stanley",
+      "Grimes",
+      "Claire Elise Boucher",
+      "Ofra Graicer",
+      "Heinrich Wadley",
+      "Adam Wadley",
+      "Giorgio Agamben",
+      "Byung-Chul Han",
+      "Frank Wilderson III",
+      "Achille Mbembe",
+      "Timothy Morton",
+      "Nick Land",
+      "Gilles Deleuze",
+      "Felix Guattari",
+      "Jacques Derrida",
+      "Michel Foucault",
+      "Saidiya Hartman",
+      "Christina Sharpe",
+      "Jared Sexton",
+      "Orlando Patterson",
+      "Huba Wass de Czege",
+      "Shimon Naveh",
+      "John Boyd",
+      "Carl von Clausewitz",
+      "Joel Lehman",
+      "Stuart Kauffman",
+      "Karl Ove Knausgaard"
+    ],
+    "Organization": [
+      "TRADOC",
+      "Army Design Methodology",
+      "Space Command",
+      "Transformation and Training Command",
+      "Joint Special Operations University",
+      "CIA",
+      "APD",
+      "Substack",
+      "Experimental Unit"
+    ],
+    "Work": [
+      "Symbolic Exchange and Death",
+      "The Gulf War Did Not Take Place",
+      "Seduction",
+      "Fatal Strategies",
+      "Simulacra and Simulation",
+      "Afropessimism",
+      "Red, White & Black",
+      "Slavery and Social Death",
+      "Homo Sacer",
+      "Why Greatness Cannot Be Planned",
+      "My Struggle"
+    ],
+    "Event": [
+      "The Sticker Actions",
+      "The Game"
+    ]
+  },
+  "conceptAliases": {
+    "SOD": "Systemic Operational Design",
+    "XU": "Experimental Unit",
+    "MUU": "Mixed Unclear Unstable"
+  }
+}

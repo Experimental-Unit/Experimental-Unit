@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Output vaults (generated)
+vault/
+sample-vault/
+output/
+
+# Input files (user content)
+input/
+sample-input/
+
+# Extraction data
+_extraction-data.json
+
+# Environment
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
