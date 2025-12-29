@@ -1,134 +1,141 @@
-# Obsidian Knowledge Graph Builder
+# Substack Knowledge Graph Generator
 
-A web application that transforms your documents into an interconnected Obsidian knowledge vault using AI-powered extraction.
+Transform your Substack posts into an interconnected knowledge graph using AI-powered extraction. This client-side application analyzes your posts to extract entities, concepts, and relationships, tracking how ideas evolve across your writing.
 
 ## Features
 
-- **Upload ZIP files** containing your documents (.txt, .md, .html)
-- **Choose your AI provider:**
-  - **OpenAI GPT-4o-mini** - Cost-effective bulk processing (~$3-5 per 1000 docs)
-  - **Anthropic Claude Opus 4.5** - Premium quality extraction (~$100-110 per 1000 docs)
-- **Automatic metadata extraction:**
-  - Inferred titles
-  - Dates (when detectable)
-  - 3-5 sentence summaries
-  - Key concepts and theoretical frameworks
-  - Key entities (people, organizations, works)
-  - Significant quotes with context
-  - Cross-document connections
-- **Generate structured Obsidian vault** with:
-  - Article notes with full metadata
-  - Concept notes aggregating mentions
-  - Entity notes with appearances
-  - Index notes for navigation
-  - Home page with statistics
-- **Download as ZIP** ready to open in Obsidian
+- **ZIP File Upload** - Import your Substack export directly
+- **Progressive Knowledge Graph Building** - Graph grows as each post is processed
+- **AI-Powered Extraction** using Claude:
+  - **Entities** - People, organizations, works, places, events
+  - **Concepts** - Theoretical frameworks, ideas, terminology
+  - **Relationships** - How entities and concepts connect and influence each other
+  - **Evolution Tracking** - How your understanding of concepts develops over time
+- **Real-Time Preview** - Watch the graph build with search and filtering
+- **Pause & Resume** - Stop processing anytime and pick up where you left off
+- **Multiple Export Formats**:
+  - **Obsidian Vault** - ZIP with interconnected markdown notes
+  - **LLM Context File** - Single file optimized for AI assistants
+  - **Raw JSON** - Complete graph data for custom processing
 
 ## Quick Start
 
-### Prerequisites
+### Online (GitHub Pages)
 
-- Node.js 18 or higher
-- OpenAI API key or Anthropic API key
+Visit the deployed application at your GitHub Pages URL.
 
-### Installation
+### Local Development
 
 ```bash
+# Install dependencies
 npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
 ```
 
-### Running the Server
+## Usage
 
-```bash
-npm start
-```
+1. **Get an Anthropic API Key** from [console.anthropic.com](https://console.anthropic.com)
+2. **Export your Substack archive** (Settings → Export)
+3. **Upload the ZIP file** to the application
+4. **Wait for processing** - Each post is analyzed sequentially
+5. **Export your knowledge graph** in your preferred format
 
-The server will start at http://localhost:3000
+## Export Formats
 
-### Usage
+### Obsidian Vault
 
-1. Open http://localhost:3000 in your browser
-2. Select your AI provider (OpenAI or Anthropic)
-3. Enter your API key
-4. Upload a ZIP file containing your documents
-5. Wait for processing (progress is shown in real-time)
-6. Download your Obsidian vault
+A ZIP file containing:
+- `Entities/` - Organized by type (People, Organizations, Works, etc.)
+- `Concepts/` - All extracted concepts with evolution tracking
+- `_Index.md` - Statistics and navigation
+- `_Graph Statistics.md` - Detailed breakdowns
+- `_Reading Order.md` - Chronological post list
 
-## Supported File Types
+Each note includes:
+- YAML frontmatter for Obsidian compatibility
+- Wikilinks (`[[Note Name]]`) for graph visualization
+- Occurrence details with dates and context
 
-- `.txt` - Plain text files
-- `.md` / `.markdown` - Markdown files (frontmatter preserved)
-- `.html` - HTML files (tags stripped automatically)
+### LLM Context File
 
-## AI Provider Comparison
+A single markdown file optimized for uploading to AI assistants (Claude, ChatGPT, etc.). Includes:
+- Entity and concept directories
+- Relationship maps
+- Chronological development phases
+- Sample questions the graph can answer
 
-| Feature | OpenAI GPT-4o-mini | Anthropic Claude Opus 4.5 |
-|---------|-------------------|---------------------------|
-| Cost per 1000 docs | ~$3-5 | ~$100-110 |
-| Speed | Fast | Slower |
-| Quality | Good | Premium |
-| Best for | Bulk processing | Complex philosophical texts |
+### Raw JSON
 
-### Cost Breakdown
+Complete graph data including:
+- All entities with occurrences and relationships
+- All concepts with evolution notes
+- All relationship edges with evidence
 
-**OpenAI GPT-4o-mini:**
-- Input: $0.15 per 1M tokens
-- Output: $0.60 per 1M tokens
-
-**Anthropic Claude Opus 4.5:**
-- Input: $15.00 per 1M tokens
-- Output: $75.00 per 1M tokens
-
-## Project Structure
+## Architecture
 
 ```
-├── server/
-│   ├── index.js       # Express server
-│   ├── processor.js   # ZIP extraction and orchestration
-│   ├── extract.js     # AI metadata extraction (OpenAI + Anthropic)
-│   ├── ontology.js    # Seed ontology management
-│   ├── templates.js   # Obsidian note generators
-│   └── vault.js       # Vault packaging
-├── public/
-│   └── index.html     # Frontend interface
-├── seed-ontology/     # Domain-specific concepts and entities
-│   ├── ontology.json
-│   ├── concepts.md
-│   └── entities.md
-└── package.json
+src/
+├── main.ts              # Entry point and UI logic
+├── types.ts             # TypeScript interfaces
+├── utils.ts             # Utility functions
+├── fileProcessor.ts     # ZIP extraction and parsing
+├── anthropic.ts         # Claude API integration
+├── graphManager.ts      # Graph state management
+├── styles.css           # Application styles
+└── exporters/
+    ├── obsidian.ts      # Obsidian vault generator
+    ├── llmContext.ts    # LLM context file generator
+    └── json.ts          # Raw JSON export
 ```
 
-## Seed Ontology
+## API Usage
 
-The `seed-ontology/` folder contains domain-specific concepts and entities that help the AI provide more accurate extractions. Edit these files to customize for your domain:
+The application uses Claude Sonnet for extraction. Approximate costs:
+- ~$0.01-0.03 per post depending on length
+- 887 posts ≈ $10-25 total
 
-- `ontology.json` - Entity types and aliases
-- `concepts.md` - Known theoretical frameworks
-- `entities.md` - Known people, organizations, and works
+Processing includes:
+1. **Entity & Concept Extraction** - Per post
+2. **Integration Verification** - Every 10 posts to merge duplicates and identify relationships
 
-## Environment Variables
+## Data Privacy
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port | 3000 |
-
-API keys are provided through the web interface and are not stored.
+- **API keys are stored only in session storage** (cleared when tab closes)
+- **All processing happens in your browser** - No data sent to any server except Anthropic
+- **Progress is saved to localStorage** - Resume after page refresh
 
 ## Rate Limiting
 
-The application includes built-in rate limiting:
+Built-in rate limiting:
+- 1 second delay between posts
+- Exponential backoff on API errors
+- Automatic retry (up to 3 times) on failures
 
-**OpenAI:**
-- 5 concurrent files per batch
-- 300ms delay between files
-- 1.5s delay between batches
+## Browser Compatibility
 
-**Anthropic:**
-- 3 concurrent files per batch
-- 500ms delay between files
-- 2s delay between batches
+Works in modern browsers with:
+- ES2020 support
+- Web Crypto API
+- Clipboard API
+- LocalStorage
 
-This prevents hitting API rate limits while maintaining good throughput.
+## Development
+
+```bash
+# Type checking
+npm run typecheck
+
+# Build
+npm run build
+
+# Preview production build
+npm run preview
+```
 
 ## License
 

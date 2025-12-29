@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Substack Knowledge Graph Generator</title>
+  <meta name="description" content="Transform your Substack posts into an interconnected knowledge graph. Extract entities, concepts, and relationships using AI.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Substack Knowledge Graph</h1>
+      <p class="subtitle">Transform your posts into an interconnected knowledge graph</p>
+    </header>
+
+    <!-- Message Container -->
+    <div id="messageContainer"></div>
+
+    <!-- Resume Banner -->
+    <div class="resume-banner" id="resumeBanner">
+      <div class="resume-banner-info">
+        <div class="resume-banner-title">Previous session found</div>
+        <div class="resume-banner-details" id="resumeInfo"></div>
+      </div>
+      <div class="resume-banner-actions">
+        <button class="btn btn-primary" id="resumeBtn" style="width: auto;">Resume</button>
+        <button class="btn btn-secondary" id="discardBtn" style="width: auto;">Start Fresh</button>
+      </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div id="uploadSection">
+      <div class="card">
+        <div class="form-group">
+          <label for="apiKey">
+            Anthropic API Key
+            <span class="label-hint">(stored only in this browser tab)</span>
+          </label>
+          <input
+            type="password"
+            id="apiKey"
+            placeholder="sk-ant-api03-..."
+            autocomplete="off"
+          >
+          <div id="apiKeyStatus"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Substack Export ZIP</label>
+          <div class="dropzone" id="dropzone">
+            <div class="dropzone-icon">📁</div>
+            <div class="dropzone-text">Drop your Substack export here or click to browse</div>
+            <div class="dropzone-formats">Supports ZIP files containing .html, .md, or .txt posts</div>
+          </div>
+          <input type="file" id="fileInput" class="file-input" accept=".zip">
+          <div class="selected-file" id="selectedFile" style="display: none;">
+            <span class="selected-file-icon">📦</span>
+            <div class="selected-file-info">
+              <div class="selected-file-name" id="fileName"></div>
+              <div class="selected-file-details" id="fileDetails"></div>
+            </div>
+            <button type="button" class="selected-file-remove" id="removeFile">✕</button>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="startBtn" disabled>
+          Generate Knowledge Graph
+        </button>
+      </div>
+
+      <div class="card" style="background: transparent; border: none; padding: 1rem;">
+        <h4 style="margin-bottom: 1rem; color: var(--text);">How it works</h4>
+        <ul style="list-style: none; color: var(--text-muted);">
+          <li style="display: flex; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <span style="color: var(--purple);">1.</span>
+            Export your Substack archive and upload the ZIP file
+          </li>
+          <li style="display: flex; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <span style="color: var(--purple);">2.</span>
+            AI analyzes each post to extract entities, concepts, and relationships
+          </li>
+          <li style="display: flex; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <span style="color: var(--purple);">3.</span>
+            The graph builds progressively, tracking how ideas evolve across posts
+          </li>
+          <li style="display: flex; gap: 0.75rem;">
+            <span style="color: var(--purple);">4.</span>
+            Export to Obsidian vault or LLM-ready context file
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Progress Section -->
+    <div class="progress-section" id="progressSection">
+      <div class="card">
+        <div class="progress-header">
+          <h3 class="card-title">Processing Posts</h3>
+          <div class="progress-controls">
+            <button class="btn btn-icon" id="pauseBtn" title="Pause">⏸ Pause</button>
+            <button class="btn btn-icon" id="stopBtn" title="Stop">⏹ Stop</button>
+          </div>
+        </div>
+
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div class="progress-stats">
+          <div class="progress-stat">
+            <div class="progress-stat-value" id="progressPosts">0/0</div>
+            <div class="progress-stat-label">Posts</div>
+          </div>
+          <div class="progress-stat">
+            <div class="progress-stat-value" id="progressEntities">0</div>
+            <div class="progress-stat-label">Entities</div>
+          </div>
+          <div class="progress-stat">
+            <div class="progress-stat-value" id="progressConcepts">0</div>
+            <div class="progress-stat-label">Concepts</div>
+          </div>
+        </div>
+
+        <div class="progress-current">
+          <div class="spinner"></div>
+          <span class="progress-current-label">Currently processing:</span>
+          <span class="progress-current-value" id="progressCurrent">—</span>
+          <span class="progress-eta" id="progressEta"></span>
+        </div>
+      </div>
+
+      <!-- Graph Preview -->
+      <div class="graph-preview hidden" id="graphPreview">
+        <div class="card">
+          <div class="graph-preview-header">
+            <span class="graph-preview-title">Knowledge Graph Preview</span>
+            <div class="graph-search">
+              <input type="text" id="graphSearch" placeholder="Search...">
+            </div>
+          </div>
+
+          <div class="graph-tabs">
+            <button class="graph-tab active" data-type="all">All</button>
+            <button class="graph-tab" data-type="entities">Entities</button>
+            <button class="graph-tab" data-type="concepts">Concepts</button>
+          </div>
+
+          <div class="graph-list" id="graphList">
+            <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+              Processing... items will appear here
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export Section -->
+    <div class="export-section" id="exportSection">
+      <div class="card">
+        <h3 class="card-title" style="margin-bottom: 1rem;">Export Your Knowledge Graph</h3>
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+          Choose a format to download your extracted knowledge graph.
+        </p>
+
+        <div class="export-grid">
+          <div class="export-card" id="exportObsidian">
+            <div class="export-card-icon">🗃️</div>
+            <div class="export-card-title">Obsidian Vault</div>
+            <div class="export-card-desc">ZIP file with interconnected markdown notes</div>
+          </div>
+
+          <div class="export-card" id="exportLLM">
+            <div class="export-card-icon">🤖</div>
+            <div class="export-card-title">LLM Context File</div>
+            <div class="export-card-desc">Single markdown file optimized for AI assistants</div>
+          </div>
+
+          <div class="export-card" id="exportJSON">
+            <div class="export-card-icon">📄</div>
+            <div class="export-card-title">Raw JSON</div>
+            <div class="export-card-desc">Complete graph data for custom processing</div>
+          </div>
+
+          <div class="export-card" id="exportCopy">
+            <div class="export-card-icon">📋</div>
+            <div class="export-card-title">Copy to Clipboard</div>
+            <div class="export-card-desc">Copy LLM context directly</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Show graph preview in export section too -->
+      <div class="graph-preview" id="graphPreviewExport">
+        <div class="card">
+          <div class="graph-preview-header">
+            <span class="graph-preview-title">Knowledge Graph Preview</span>
+            <div class="graph-search">
+              <input type="text" class="graphSearchExport" placeholder="Search...">
+            </div>
+          </div>
+
+          <div class="graph-tabs">
+            <button class="graph-tab active" data-type="all">All</button>
+            <button class="graph-tab" data-type="entities">Entities</button>
+            <button class="graph-tab" data-type="concepts">Concepts</button>
+          </div>
+
+          <div class="graph-list" id="graphListExport"></div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p>
+        Powered by <a href="https://www.anthropic.com" target="_blank" rel="noopener">Claude</a> |
+        Built for the <a href="https://experimentalunit.substack.com" target="_blank" rel="noopener">Experimental Unit</a>
+      </p>
+    </footer>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
