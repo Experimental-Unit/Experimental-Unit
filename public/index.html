@@ -9,6 +9,7 @@
       --primary: #7c3aed;
       --primary-dark: #5b21b6;
       --secondary: #f97316;
+      --anthropic: #d97706;
       --bg-dark: #1a1a2e;
       --bg-card: #16213e;
       --text: #e2e8f0;
@@ -82,7 +83,8 @@
     }
 
     input[type="password"],
-    input[type="text"] {
+    input[type="text"],
+    select {
       width: 100%;
       padding: 0.75rem 1rem;
       border: 2px solid #334155;
@@ -93,9 +95,67 @@
       transition: border-color 0.2s;
     }
 
-    input:focus {
+    select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+    }
+
+    input:focus,
+    select:focus {
       outline: none;
       border-color: var(--primary);
+    }
+
+    .provider-toggle {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .provider-btn {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: 2px solid #334155;
+      border-radius: 8px;
+      background: #0f172a;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .provider-btn:hover {
+      border-color: #475569;
+    }
+
+    .provider-btn.active {
+      border-color: var(--primary);
+      background: rgba(124, 58, 237, 0.15);
+      color: var(--text);
+    }
+
+    .provider-btn.active.anthropic {
+      border-color: var(--anthropic);
+      background: rgba(217, 119, 6, 0.15);
+    }
+
+    .provider-info {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+    }
+
+    .provider-info.anthropic {
+      background: rgba(217, 119, 6, 0.1);
+      border-left: 3px solid var(--anthropic);
     }
 
     .dropzone {
@@ -363,6 +423,10 @@
       .stats-grid {
         grid-template-columns: 1fr;
       }
+
+      .provider-toggle {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
@@ -377,7 +441,22 @@
     <div class="card" id="uploadSection">
       <form id="uploadForm">
         <div class="form-group">
-          <label for="apiKey">
+          <label>AI Provider</label>
+          <div class="provider-toggle">
+            <button type="button" class="provider-btn active" data-provider="openai">
+              OpenAI GPT-4o-mini
+            </button>
+            <button type="button" class="provider-btn" data-provider="anthropic">
+              Anthropic Claude Opus 4.5
+            </button>
+          </div>
+          <div class="provider-info" id="providerInfo">
+            Cost-effective bulk processing (~$3-5 per 1000 docs)
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="apiKey" id="apiKeyLabel">
             OpenAI API Key
             <span class="label-hint">(required for AI extraction)</span>
           </label>
@@ -475,7 +554,7 @@
   </div>
 
   <footer>
-    <p>Powered by GPT-4o-mini for cost-effective bulk processing</p>
+    <p id="footerText">Powered by GPT-4o-mini for cost-effective bulk processing</p>
   </footer>
 
   <script>
@@ -488,6 +567,9 @@
     const submitBtn = document.getElementById('submitBtn');
     const submitText = document.getElementById('submitText');
     const apiKeyInput = document.getElementById('apiKey');
+    const apiKeyLabel = document.getElementById('apiKeyLabel');
+    const providerInfo = document.getElementById('providerInfo');
+    const footerText = document.getElementById('footerText');
 
     const uploadSection = document.getElementById('uploadSection');
     const progressSection = document.getElementById('progressSection');
@@ -502,8 +584,38 @@
     const downloadBtn = document.getElementById('downloadBtn');
     const newUploadBtn = document.getElementById('newUploadBtn');
 
+    const providerBtns = document.querySelectorAll('.provider-btn');
+
     let currentFile = null;
     let currentJobId = null;
+    let currentProvider = 'openai';
+
+    // Provider toggle
+    providerBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        providerBtns.forEach(b => b.classList.remove('active', 'anthropic'));
+        btn.classList.add('active');
+
+        currentProvider = btn.dataset.provider;
+
+        if (currentProvider === 'anthropic') {
+          btn.classList.add('anthropic');
+          apiKeyLabel.innerHTML = 'Anthropic API Key <span class="label-hint">(required for AI extraction)</span>';
+          apiKeyInput.placeholder = 'sk-ant-...';
+          providerInfo.textContent = 'Premium quality extraction (~$100-110 per 1000 docs)';
+          providerInfo.classList.add('anthropic');
+          footerText.textContent = 'Powered by Claude Opus 4.5 for premium quality extraction';
+        } else {
+          apiKeyLabel.innerHTML = 'OpenAI API Key <span class="label-hint">(required for AI extraction)</span>';
+          apiKeyInput.placeholder = 'sk-...';
+          providerInfo.textContent = 'Cost-effective bulk processing (~$3-5 per 1000 docs)';
+          providerInfo.classList.remove('anthropic');
+          footerText.textContent = 'Powered by GPT-4o-mini for cost-effective bulk processing';
+        }
+
+        updateSubmitButton();
+      });
+    });
 
     // Check if form is valid
     function updateSubmitButton() {
@@ -577,6 +689,7 @@
       const formData = new FormData();
       formData.append('file', currentFile);
       formData.append('apiKey', apiKeyInput.value);
+      formData.append('provider', currentProvider);
 
       try {
         // Upload file

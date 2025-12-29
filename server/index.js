@@ -68,10 +68,18 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
 
     const apiKey = req.body.apiKey;
+    const provider = req.body.provider || 'openai';
+
     if (!apiKey) {
       // Clean up uploaded file
       rmSync(req.file.path, { force: true });
       return res.status(400).json({ error: 'API key is required' });
+    }
+
+    // Validate provider
+    if (!['openai', 'anthropic'].includes(provider)) {
+      rmSync(req.file.path, { force: true });
+      return res.status(400).json({ error: 'Invalid provider. Use "openai" or "anthropic"' });
     }
 
     const jobId = Date.now().toString();
@@ -84,11 +92,12 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       total: 0,
       currentFile: '',
       startTime: Date.now(),
-      inputPath
+      inputPath,
+      provider
     });
 
     // Start processing in background
-    processZipFile(inputPath, apiKey, (progress) => {
+    processZipFile(inputPath, { apiKey, provider }, (progress) => {
       const job = processingJobs.get(jobId);
       if (job) {
         job.progress = progress.processed;

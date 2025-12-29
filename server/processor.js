@@ -21,8 +21,14 @@ const SUPPORTED_EXTENSIONS = ['.txt', '.md', '.markdown', '.html'];
 
 /**
  * Extract and process a ZIP file
+ * @param {string} zipPath - Path to uploaded ZIP file
+ * @param {Object} options - Processing options
+ * @param {string} options.apiKey - API key for the AI provider
+ * @param {string} options.provider - 'openai' or 'anthropic'
+ * @param {Function} progressCallback - Progress callback
  */
-export async function processZipFile(zipPath, apiKey, progressCallback) {
+export async function processZipFile(zipPath, options, progressCallback) {
+  const { apiKey, provider = 'openai' } = options;
   const tempDir = join(__dirname, '..', 'temp', Date.now().toString());
   const extractDir = join(tempDir, 'extracted');
 
@@ -50,19 +56,23 @@ export async function processZipFile(zipPath, apiKey, progressCallback) {
       throw new Error('No files with sufficient content found (minimum 50 words)');
     }
 
-    // Initialize AI
-    initializeAI({ openaiApiKey: apiKey });
+    // Initialize AI with selected provider
+    initializeAI({ apiKey, provider });
 
     // Load seed ontology
     const seedOntologyDir = join(__dirname, '..', 'seed-ontology');
     const seedOntology = loadSeedOntology(seedOntologyDir);
 
+    // Configure based on provider
+    const model = provider === 'anthropic' ? 'claude-opus-4-5-20251101' : 'gpt-4o-mini';
+    const batchSize = provider === 'anthropic' ? 3 : 5;
+
     // Extract metadata from all files
     const config = {
-      model: 'gpt-4o-mini',
+      model,
       temperature: 0.3,
       maxTokens: 4000,
-      batchSize: 5
+      batchSize
     };
 
     const extractions = await batchExtract(parsedFiles, seedOntology, config, (progress) => {

@@ -5,7 +5,9 @@ A web application that transforms your documents into an interconnected Obsidian
 ## Features
 
 - **Upload ZIP files** containing your documents (.txt, .md, .html)
-- **AI-powered extraction** using GPT-4o-mini for cost-effective bulk processing
+- **Choose your AI provider:**
+  - **OpenAI GPT-4o-mini** - Cost-effective bulk processing (~$3-5 per 1000 docs)
+  - **Anthropic Claude Opus 4.5** - Premium quality extraction (~$100-110 per 1000 docs)
 - **Automatic metadata extraction:**
   - Inferred titles
   - Dates (when detectable)
@@ -27,7 +29,7 @@ A web application that transforms your documents into an interconnected Obsidian
 ### Prerequisites
 
 - Node.js 18 or higher
-- OpenAI API key
+- OpenAI API key or Anthropic API key
 
 ### Installation
 
@@ -46,10 +48,11 @@ The server will start at http://localhost:3000
 ### Usage
 
 1. Open http://localhost:3000 in your browser
-2. Enter your OpenAI API key
-3. Upload a ZIP file containing your documents
-4. Wait for processing (progress is shown in real-time)
-5. Download your Obsidian vault
+2. Select your AI provider (OpenAI or Anthropic)
+3. Enter your API key
+4. Upload a ZIP file containing your documents
+5. Wait for processing (progress is shown in real-time)
+6. Download your Obsidian vault
 
 ## Supported File Types
 
@@ -57,14 +60,24 @@ The server will start at http://localhost:3000
 - `.md` / `.markdown` - Markdown files (frontmatter preserved)
 - `.html` - HTML files (tags stripped automatically)
 
-## Cost Considerations
+## AI Provider Comparison
 
-Uses GPT-4o-mini which is optimized for:
-- Cost-effective bulk processing
-- ~$0.15 per 1M input tokens
-- ~$0.60 per 1M output tokens
+| Feature | OpenAI GPT-4o-mini | Anthropic Claude Opus 4.5 |
+|---------|-------------------|---------------------------|
+| Cost per 1000 docs | ~$3-5 | ~$100-110 |
+| Speed | Fast | Slower |
+| Quality | Good | Premium |
+| Best for | Bulk processing | Complex philosophical texts |
 
-For 1000 documents averaging 2000 words each, expect approximately $3-5 in API costs.
+### Cost Breakdown
+
+**OpenAI GPT-4o-mini:**
+- Input: $0.15 per 1M tokens
+- Output: $0.60 per 1M tokens
+
+**Anthropic Claude Opus 4.5:**
+- Input: $15.00 per 1M tokens
+- Output: $75.00 per 1M tokens
 
 ## Project Structure
 
@@ -72,7 +85,7 @@ For 1000 documents averaging 2000 words each, expect approximately $3-5 in API c
 ├── server/
 │   ├── index.js       # Express server
 │   ├── processor.js   # ZIP extraction and orchestration
-│   ├── extract.js     # AI metadata extraction
+│   ├── extract.js     # AI metadata extraction (OpenAI + Anthropic)
 │   ├── ontology.js    # Seed ontology management
 │   ├── templates.js   # Obsidian note generators
 │   └── vault.js       # Vault packaging
@@ -104,11 +117,18 @@ API keys are provided through the web interface and are not stored.
 ## Rate Limiting
 
 The application includes built-in rate limiting:
+
+**OpenAI:**
 - 5 concurrent files per batch
 - 300ms delay between files
 - 1.5s delay between batches
 
-This prevents hitting OpenAI rate limits while maintaining good throughput.
+**Anthropic:**
+- 3 concurrent files per batch
+- 500ms delay between files
+- 2s delay between batches
+
+This prevents hitting API rate limits while maintaining good throughput.
 
 ## License
 
