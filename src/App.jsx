@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import VaultBuilder from './VaultBuilder';
 
 // Colors
 const colors = {
@@ -338,6 +339,9 @@ What problem are you currently trying to solve?`,
 const generateSessionId = () => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 export default function App() {
+  // App mode
+  const [appMode, setAppMode] = useState('game'); // game, vault-builder
+
   // Game state
   const [phase, setPhase] = useState('intro'); // intro, playing, reflecting
   const [currentSituation, setCurrentSituation] = useState('awakening');
@@ -590,6 +594,11 @@ export default function App() {
     },
   };
 
+  // Show Vault Builder if that mode is selected
+  if (appMode === 'vault-builder') {
+    return <VaultBuilder onBack={() => setAppMode('game')} />;
+  }
+
   return (
     <div style={styles.container}>
       <header style={styles.header}>
@@ -618,6 +627,26 @@ export default function App() {
             >
               Begin
             </button>
+            <div style={{ marginTop: '40px' }}>
+              <button
+                style={{
+                  ...styles.startButton,
+                  borderColor: colors.purple,
+                  color: colors.purple,
+                }}
+                onClick={() => setAppMode('vault-builder')}
+                onMouseOver={(e) => {
+                  e.target.style.backgroundColor = colors.purple;
+                  e.target.style.color = colors.white;
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                  e.target.style.color = colors.purple;
+                }}
+              >
+                Vault Builder
+              </button>
+            </div>
           </div>
         )}
 
