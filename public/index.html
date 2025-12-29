@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Obsidian Knowledge Graph Builder</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     :root {
       --primary: #7c3aed;
@@ -17,13 +18,7 @@
       --success: #10b981;
       --error: #ef4444;
     }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: linear-gradient(135deg, var(--bg-dark) 0%, #0f0f23 100%);
@@ -31,18 +26,8 @@
       min-height: 100vh;
       line-height: 1.6;
     }
-
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-
-    header {
-      text-align: center;
-      margin-bottom: 3rem;
-    }
-
+    .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
+    header { text-align: center; margin-bottom: 3rem; }
     h1 {
       font-size: 2.5rem;
       background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
@@ -51,12 +36,7 @@
       background-clip: text;
       margin-bottom: 0.5rem;
     }
-
-    .subtitle {
-      color: var(--text-muted);
-      font-size: 1.1rem;
-    }
-
+    .subtitle { color: var(--text-muted); font-size: 1.1rem; }
     .card {
       background: var(--bg-card);
       border-radius: 16px;
@@ -64,27 +44,10 @@
       margin-bottom: 1.5rem;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
-
-    .form-group {
-      margin-bottom: 1.5rem;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-weight: 500;
-      color: var(--text);
-    }
-
-    .label-hint {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      font-weight: normal;
-    }
-
-    input[type="password"],
-    input[type="text"],
-    select {
+    .form-group { margin-bottom: 1.5rem; }
+    label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text); }
+    .label-hint { font-size: 0.85rem; color: var(--text-muted); font-weight: normal; }
+    input[type="password"], input[type="text"] {
       width: 100%;
       padding: 0.75rem 1rem;
       border: 2px solid #334155;
@@ -94,27 +57,8 @@
       font-size: 1rem;
       transition: border-color 0.2s;
     }
-
-    select {
-      cursor: pointer;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 1rem center;
-    }
-
-    input:focus,
-    select:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
-
-    .provider-toggle {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-    }
-
+    input:focus { outline: none; border-color: var(--primary); }
+    .provider-toggle { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
     .provider-btn {
       flex: 1;
       padding: 0.75rem 1rem;
@@ -128,22 +72,9 @@
       transition: all 0.2s ease;
       text-align: center;
     }
-
-    .provider-btn:hover {
-      border-color: #475569;
-    }
-
-    .provider-btn.active {
-      border-color: var(--primary);
-      background: rgba(124, 58, 237, 0.15);
-      color: var(--text);
-    }
-
-    .provider-btn.active.anthropic {
-      border-color: var(--anthropic);
-      background: rgba(217, 119, 6, 0.15);
-    }
-
+    .provider-btn:hover { border-color: #475569; }
+    .provider-btn.active { border-color: var(--primary); background: rgba(124, 58, 237, 0.15); color: var(--text); }
+    .provider-btn.active.anthropic { border-color: var(--anthropic); background: rgba(217, 119, 6, 0.15); }
     .provider-info {
       font-size: 0.8rem;
       color: var(--text-muted);
@@ -152,12 +83,7 @@
       background: rgba(0, 0, 0, 0.2);
       border-radius: 6px;
     }
-
-    .provider-info.anthropic {
-      background: rgba(217, 119, 6, 0.1);
-      border-left: 3px solid var(--anthropic);
-    }
-
+    .provider-info.anthropic { background: rgba(217, 119, 6, 0.1); border-left: 3px solid var(--anthropic); }
     .dropzone {
       border: 2px dashed #475569;
       border-radius: 12px;
@@ -167,32 +93,11 @@
       transition: all 0.3s ease;
       background: rgba(124, 58, 237, 0.05);
     }
-
-    .dropzone:hover,
-    .dropzone.dragover {
-      border-color: var(--primary);
-      background: rgba(124, 58, 237, 0.1);
-    }
-
-    .dropzone-icon {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-    }
-
-    .dropzone-text {
-      color: var(--text-muted);
-      margin-bottom: 0.5rem;
-    }
-
-    .dropzone-formats {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-
-    .file-input {
-      display: none;
-    }
-
+    .dropzone:hover, .dropzone.dragover { border-color: var(--primary); background: rgba(124, 58, 237, 0.1); }
+    .dropzone-icon { font-size: 3rem; margin-bottom: 1rem; }
+    .dropzone-text { color: var(--text-muted); margin-bottom: 0.5rem; }
+    .dropzone-formats { font-size: 0.85rem; color: var(--text-muted); }
+    .file-input { display: none; }
     .selected-file {
       display: flex;
       align-items: center;
@@ -202,25 +107,9 @@
       border-radius: 8px;
       margin-top: 1rem;
     }
-
-    .selected-file-icon {
-      font-size: 1.5rem;
-    }
-
-    .selected-file-name {
-      flex: 1;
-      font-weight: 500;
-    }
-
-    .selected-file-remove {
-      background: none;
-      border: none;
-      color: var(--error);
-      cursor: pointer;
-      font-size: 1.2rem;
-      padding: 0.25rem;
-    }
-
+    .selected-file-icon { font-size: 1.5rem; }
+    .selected-file-name { flex: 1; font-weight: 500; }
+    .selected-file-remove { background: none; border: none; color: var(--error); cursor: pointer; font-size: 1.2rem; padding: 0.25rem; }
     .btn {
       display: inline-flex;
       align-items: center;
@@ -235,198 +124,38 @@
       transition: all 0.2s ease;
       width: 100%;
     }
-
-    .btn-primary {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      color: white;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .btn-success {
-      background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
-      color: white;
-    }
-
-    .btn-success:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-    }
-
-    /* Progress section */
-    .progress-section {
-      display: none;
-    }
-
-    .progress-section.active {
-      display: block;
-    }
-
-    .progress-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .progress-bar-container {
-      height: 8px;
-      background: #334155;
-      border-radius: 4px;
-      overflow: hidden;
-      margin-bottom: 1rem;
-    }
-
-    .progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
-      width: 0%;
-      transition: width 0.3s ease;
-    }
-
-    .progress-status {
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 2px solid transparent;
-      border-top-color: var(--primary);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* Results section */
-    .results-section {
-      display: none;
-    }
-
-    .results-section.active {
-      display: block;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .stat-card {
-      background: rgba(124, 58, 237, 0.1);
-      padding: 1rem;
-      border-radius: 8px;
-      text-align: center;
-    }
-
-    .stat-value {
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--primary);
-    }
-
-    .stat-label {
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
-
-    .success-message {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 1rem;
-      background: rgba(16, 185, 129, 0.1);
-      border-radius: 8px;
-      margin-bottom: 1.5rem;
-      color: var(--success);
-    }
-
-    .error-message {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 1rem;
-      background: rgba(239, 68, 68, 0.1);
-      border-radius: 8px;
-      margin-bottom: 1.5rem;
-      color: var(--error);
-    }
-
-    /* Info section */
-    .info-section {
-      margin-top: 2rem;
-    }
-
-    .info-title {
-      font-size: 1.1rem;
-      margin-bottom: 1rem;
-      color: var(--text);
-    }
-
-    .info-list {
-      list-style: none;
-    }
-
-    .info-list li {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.75rem;
-      margin-bottom: 0.75rem;
-      color: var(--text-muted);
-    }
-
-    .info-list li::before {
-      content: "→";
-      color: var(--primary);
-    }
-
-    footer {
-      text-align: center;
-      padding: 2rem;
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
-
-    footer a {
-      color: var(--primary);
-      text-decoration: none;
-    }
-
-    footer a:hover {
-      text-decoration: underline;
-    }
-
+    .btn-primary { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-success { background: linear-gradient(135deg, var(--success) 0%, #059669 100%); color: white; }
+    .btn-success:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); }
+    .progress-section { display: none; }
+    .progress-section.active { display: block; }
+    .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .progress-bar-container { height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin-bottom: 1rem; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%); width: 0%; transition: width 0.3s ease; }
+    .progress-status { color: var(--text-muted); font-size: 0.9rem; }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid transparent; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .results-section { display: none; }
+    .results-section.active { display: block; }
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: rgba(124, 58, 237, 0.1); padding: 1rem; border-radius: 8px; text-align: center; }
+    .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); }
+    .stat-label { color: var(--text-muted); font-size: 0.9rem; }
+    .success-message { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; background: rgba(16, 185, 129, 0.1); border-radius: 8px; margin-bottom: 1.5rem; color: var(--success); }
+    .error-message { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; background: rgba(239, 68, 68, 0.1); border-radius: 8px; margin-bottom: 1.5rem; color: var(--error); }
+    .info-section { margin-top: 2rem; }
+    .info-title { font-size: 1.1rem; margin-bottom: 1rem; color: var(--text); }
+    .info-list { list-style: none; }
+    .info-list li { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.75rem; color: var(--text-muted); }
+    .info-list li::before { content: "→"; color: var(--primary); }
+    footer { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.9rem; }
     @media (max-width: 600px) {
-      .container {
-        padding: 1rem;
-      }
-
-      h1 {
-        font-size: 1.75rem;
-      }
-
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .provider-toggle {
-        flex-direction: column;
-      }
+      .container { padding: 1rem; }
+      h1 { font-size: 1.75rem; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .provider-toggle { flex-direction: column; }
     }
   </style>
 </head>
@@ -437,38 +166,20 @@
       <p class="subtitle">Transform your documents into an interconnected knowledge vault</p>
     </header>
 
-    <!-- Upload Form -->
     <div class="card" id="uploadSection">
       <form id="uploadForm">
         <div class="form-group">
           <label>AI Provider</label>
           <div class="provider-toggle">
-            <button type="button" class="provider-btn active" data-provider="openai">
-              OpenAI GPT-4o-mini
-            </button>
-            <button type="button" class="provider-btn" data-provider="anthropic">
-              Anthropic Claude Opus 4.5
-            </button>
+            <button type="button" class="provider-btn active" data-provider="openai">OpenAI GPT-4o-mini</button>
+            <button type="button" class="provider-btn" data-provider="anthropic">Anthropic Claude Opus 4.5</button>
           </div>
-          <div class="provider-info" id="providerInfo">
-            Cost-effective bulk processing (~$3-5 per 1000 docs)
-          </div>
+          <div class="provider-info" id="providerInfo">Cost-effective bulk processing (~$3-5 per 1000 docs)</div>
         </div>
-
         <div class="form-group">
-          <label for="apiKey" id="apiKeyLabel">
-            OpenAI API Key
-            <span class="label-hint">(required for AI extraction)</span>
-          </label>
-          <input
-            type="password"
-            id="apiKey"
-            name="apiKey"
-            placeholder="sk-..."
-            required
-          >
+          <label for="apiKey" id="apiKeyLabel">OpenAI API Key <span class="label-hint">(required for AI extraction)</span></label>
+          <input type="password" id="apiKey" placeholder="sk-..." required>
         </div>
-
         <div class="form-group">
           <label>Upload ZIP File</label>
           <div class="dropzone" id="dropzone">
@@ -483,65 +194,29 @@
             <button type="button" class="selected-file-remove" id="removeFile">✕</button>
           </div>
         </div>
-
-        <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
-          <span id="submitText">Build Knowledge Graph</span>
-        </button>
+        <button type="submit" class="btn btn-primary" id="submitBtn" disabled>Build Knowledge Graph</button>
       </form>
     </div>
 
-    <!-- Progress Section -->
     <div class="card progress-section" id="progressSection">
-      <div class="progress-header">
-        <h3>Processing Documents</h3>
-        <div class="spinner"></div>
-      </div>
-      <div class="progress-bar-container">
-        <div class="progress-bar" id="progressBar"></div>
-      </div>
+      <div class="progress-header"><h3>Processing Documents</h3><div class="spinner"></div></div>
+      <div class="progress-bar-container"><div class="progress-bar" id="progressBar"></div></div>
       <div class="progress-status" id="progressStatus">Initializing...</div>
     </div>
 
-    <!-- Results Section -->
     <div class="card results-section" id="resultsSection">
-      <div class="success-message" id="successMessage">
-        <span>✓</span>
-        <span>Knowledge graph generated successfully!</span>
-      </div>
-      <div class="error-message" id="errorMessage" style="display: none;">
-        <span>✕</span>
-        <span id="errorText">An error occurred</span>
-      </div>
-
+      <div class="success-message" id="successMessage"><span>✓</span><span>Knowledge graph generated successfully!</span></div>
+      <div class="error-message" id="errorMessage" style="display: none;"><span>✕</span><span id="errorText">An error occurred</span></div>
       <div class="stats-grid" id="statsGrid">
-        <div class="stat-card">
-          <div class="stat-value" id="statArticles">0</div>
-          <div class="stat-label">Articles</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="statConcepts">0</div>
-          <div class="stat-label">Concepts</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="statEntities">0</div>
-          <div class="stat-label">Entities</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="statWords">0</div>
-          <div class="stat-label">Total Words</div>
-        </div>
+        <div class="stat-card"><div class="stat-value" id="statArticles">0</div><div class="stat-label">Articles</div></div>
+        <div class="stat-card"><div class="stat-value" id="statConcepts">0</div><div class="stat-label">Concepts</div></div>
+        <div class="stat-card"><div class="stat-value" id="statEntities">0</div><div class="stat-label">Entities</div></div>
+        <div class="stat-card"><div class="stat-value" id="statWords">0</div><div class="stat-label">Total Words</div></div>
       </div>
-
-      <button class="btn btn-success" id="downloadBtn">
-        📥 Download Obsidian Vault
-      </button>
-
-      <button class="btn btn-primary" id="newUploadBtn" style="margin-top: 1rem; background: #334155;">
-        Process Another File
-      </button>
+      <button class="btn btn-success" id="downloadBtn">📥 Download Obsidian Vault</button>
+      <button class="btn btn-primary" id="newUploadBtn" style="margin-top: 1rem; background: #334155;">Process Another File</button>
     </div>
 
-    <!-- Info Section -->
     <div class="info-section">
       <h4 class="info-title">How it works</h4>
       <ul class="info-list">
@@ -553,119 +228,94 @@
     </div>
   </div>
 
-  <footer>
-    <p id="footerText">Powered by GPT-4o-mini for cost-effective bulk processing</p>
-  </footer>
+  <footer><p id="footerText">Powered by GPT-4o-mini for cost-effective bulk processing</p></footer>
 
   <script>
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('fileInput');
-    const selectedFile = document.getElementById('selectedFile');
-    const fileName = document.getElementById('fileName');
-    const removeFile = document.getElementById('removeFile');
-    const uploadForm = document.getElementById('uploadForm');
-    const submitBtn = document.getElementById('submitBtn');
-    const submitText = document.getElementById('submitText');
-    const apiKeyInput = document.getElementById('apiKey');
-    const apiKeyLabel = document.getElementById('apiKeyLabel');
-    const providerInfo = document.getElementById('providerInfo');
-    const footerText = document.getElementById('footerText');
-
-    const uploadSection = document.getElementById('uploadSection');
-    const progressSection = document.getElementById('progressSection');
-    const resultsSection = document.getElementById('resultsSection');
-    const progressBar = document.getElementById('progressBar');
-    const progressStatus = document.getElementById('progressStatus');
-
-    const successMessage = document.getElementById('successMessage');
-    const errorMessage = document.getElementById('errorMessage');
-    const errorText = document.getElementById('errorText');
-    const statsGrid = document.getElementById('statsGrid');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const newUploadBtn = document.getElementById('newUploadBtn');
-
-    const providerBtns = document.querySelectorAll('.provider-btn');
+    // Seed ontology for better extraction
+    const SEED_CONCEPTS = ['Symbolic Exchange','Hyperreality','Simulation','Simulacra','Seduction','Transpolitics','Fatal Strategies','Experimental Unit','MUU','Systemic Operational Design','SOD','Afropessimism','Anti-Blackness','Necropolitics','Biopolitics','Design Thinking','Wicked Problems'];
+    const SEED_ENTITIES = ['Jean Baudrillard','Ben Zweibelson','Kenneth Stanley','Grimes','Giorgio Agamben','Byung-Chul Han','Frank Wilderson','Achille Mbembe','Timothy Morton','Nick Land','TRADOC','Space Command'];
 
     let currentFile = null;
-    let currentJobId = null;
     let currentProvider = 'openai';
+    let generatedZip = null;
+
+    const elements = {
+      dropzone: document.getElementById('dropzone'),
+      fileInput: document.getElementById('fileInput'),
+      selectedFile: document.getElementById('selectedFile'),
+      fileName: document.getElementById('fileName'),
+      removeFile: document.getElementById('removeFile'),
+      uploadForm: document.getElementById('uploadForm'),
+      submitBtn: document.getElementById('submitBtn'),
+      apiKeyInput: document.getElementById('apiKey'),
+      apiKeyLabel: document.getElementById('apiKeyLabel'),
+      providerInfo: document.getElementById('providerInfo'),
+      footerText: document.getElementById('footerText'),
+      uploadSection: document.getElementById('uploadSection'),
+      progressSection: document.getElementById('progressSection'),
+      resultsSection: document.getElementById('resultsSection'),
+      progressBar: document.getElementById('progressBar'),
+      progressStatus: document.getElementById('progressStatus'),
+      successMessage: document.getElementById('successMessage'),
+      errorMessage: document.getElementById('errorMessage'),
+      errorText: document.getElementById('errorText'),
+      statsGrid: document.getElementById('statsGrid'),
+      downloadBtn: document.getElementById('downloadBtn'),
+      newUploadBtn: document.getElementById('newUploadBtn')
+    };
 
     // Provider toggle
-    providerBtns.forEach(btn => {
+    document.querySelectorAll('.provider-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        providerBtns.forEach(b => b.classList.remove('active', 'anthropic'));
+        document.querySelectorAll('.provider-btn').forEach(b => b.classList.remove('active', 'anthropic'));
         btn.classList.add('active');
-
         currentProvider = btn.dataset.provider;
-
         if (currentProvider === 'anthropic') {
           btn.classList.add('anthropic');
-          apiKeyLabel.innerHTML = 'Anthropic API Key <span class="label-hint">(required for AI extraction)</span>';
-          apiKeyInput.placeholder = 'sk-ant-...';
-          providerInfo.textContent = 'Premium quality extraction (~$100-110 per 1000 docs)';
-          providerInfo.classList.add('anthropic');
-          footerText.textContent = 'Powered by Claude Opus 4.5 for premium quality extraction';
+          elements.apiKeyLabel.innerHTML = 'Anthropic API Key <span class="label-hint">(required)</span>';
+          elements.apiKeyInput.placeholder = 'sk-ant-...';
+          elements.providerInfo.textContent = 'Premium quality extraction (~$100-110 per 1000 docs)';
+          elements.providerInfo.classList.add('anthropic');
+          elements.footerText.textContent = 'Powered by Claude Opus 4.5';
         } else {
-          apiKeyLabel.innerHTML = 'OpenAI API Key <span class="label-hint">(required for AI extraction)</span>';
-          apiKeyInput.placeholder = 'sk-...';
-          providerInfo.textContent = 'Cost-effective bulk processing (~$3-5 per 1000 docs)';
-          providerInfo.classList.remove('anthropic');
-          footerText.textContent = 'Powered by GPT-4o-mini for cost-effective bulk processing';
+          elements.apiKeyLabel.innerHTML = 'OpenAI API Key <span class="label-hint">(required)</span>';
+          elements.apiKeyInput.placeholder = 'sk-...';
+          elements.providerInfo.textContent = 'Cost-effective bulk processing (~$3-5 per 1000 docs)';
+          elements.providerInfo.classList.remove('anthropic');
+          elements.footerText.textContent = 'Powered by GPT-4o-mini';
         }
-
         updateSubmitButton();
       });
     });
 
-    // Check if form is valid
     function updateSubmitButton() {
-      const hasFile = currentFile !== null;
-      const hasApiKey = apiKeyInput.value.trim().length > 0;
-      submitBtn.disabled = !(hasFile && hasApiKey);
+      elements.submitBtn.disabled = !(currentFile && elements.apiKeyInput.value.trim());
     }
 
-    apiKeyInput.addEventListener('input', updateSubmitButton);
-
-    // Dropzone events
-    dropzone.addEventListener('click', () => fileInput.click());
-
-    dropzone.addEventListener('dragover', (e) => {
+    elements.apiKeyInput.addEventListener('input', updateSubmitButton);
+    elements.dropzone.addEventListener('click', () => elements.fileInput.click());
+    elements.dropzone.addEventListener('dragover', e => { e.preventDefault(); elements.dropzone.classList.add('dragover'); });
+    elements.dropzone.addEventListener('dragleave', () => elements.dropzone.classList.remove('dragover'));
+    elements.dropzone.addEventListener('drop', e => {
       e.preventDefault();
-      dropzone.classList.add('dragover');
+      elements.dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]?.name.endsWith('.zip')) handleFileSelect(e.dataTransfer.files[0]);
     });
-
-    dropzone.addEventListener('dragleave', () => {
-      dropzone.classList.remove('dragover');
-    });
-
-    dropzone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropzone.classList.remove('dragover');
-      const files = e.dataTransfer.files;
-      if (files.length > 0 && files[0].name.endsWith('.zip')) {
-        handleFileSelect(files[0]);
-      }
-    });
-
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) {
-        handleFileSelect(e.target.files[0]);
-      }
-    });
+    elements.fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFileSelect(e.target.files[0]); });
 
     function handleFileSelect(file) {
       currentFile = file;
-      fileName.textContent = `${file.name} (${formatSize(file.size)})`;
-      selectedFile.style.display = 'flex';
-      dropzone.style.display = 'none';
+      elements.fileName.textContent = `${file.name} (${formatSize(file.size)})`;
+      elements.selectedFile.style.display = 'flex';
+      elements.dropzone.style.display = 'none';
       updateSubmitButton();
     }
 
-    removeFile.addEventListener('click', () => {
+    elements.removeFile.addEventListener('click', () => {
       currentFile = null;
-      fileInput.value = '';
-      selectedFile.style.display = 'none';
-      dropzone.style.display = 'block';
+      elements.fileInput.value = '';
+      elements.selectedFile.style.display = 'none';
+      elements.dropzone.style.display = 'block';
       updateSubmitButton();
     });
 
@@ -675,111 +325,354 @@
       return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
-    // Form submission
-    uploadForm.addEventListener('submit', async (e) => {
+    // Main processing
+    elements.uploadForm.addEventListener('submit', async e => {
       e.preventDefault();
+      if (!currentFile || !elements.apiKeyInput.value) return;
 
-      if (!currentFile || !apiKeyInput.value) return;
-
-      // Show progress section
-      uploadSection.style.display = 'none';
-      progressSection.classList.add('active');
-      resultsSection.classList.remove('active');
-
-      const formData = new FormData();
-      formData.append('file', currentFile);
-      formData.append('apiKey', apiKeyInput.value);
-      formData.append('provider', currentProvider);
+      elements.uploadSection.style.display = 'none';
+      elements.progressSection.classList.add('active');
+      elements.resultsSection.classList.remove('active');
 
       try {
-        // Upload file
-        const uploadResponse = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
-        });
-
-        if (!uploadResponse.ok) {
-          const error = await uploadResponse.json();
-          throw new Error(error.error || 'Upload failed');
-        }
-
-        const { jobId } = await uploadResponse.json();
-        currentJobId = jobId;
-
-        // Poll for status
-        pollStatus(jobId);
+        const result = await processZipFile(currentFile, elements.apiKeyInput.value);
+        showResults(result.stats);
+        generatedZip = result.zip;
       } catch (error) {
         showError(error.message);
       }
     });
 
-    async function pollStatus(jobId) {
-      try {
-        const response = await fetch(`/api/status/${jobId}`);
-        const data = await response.json();
+    async function processZipFile(file, apiKey) {
+      const zip = new JSZip();
+      const inputZip = await JSZip.loadAsync(file);
 
-        if (data.status === 'processing') {
-          const percent = data.total > 0 ? Math.round((data.processed / data.total) * 100) : 0;
-          progressBar.style.width = `${percent}%`;
-          progressStatus.textContent = `Processing ${data.processed} of ${data.total} files${data.currentFile ? `: ${data.currentFile}` : ''}`;
-          setTimeout(() => pollStatus(jobId), 1000);
-        } else if (data.status === 'complete') {
-          showResults(data.stats);
-        } else if (data.status === 'error') {
-          showError(data.error || 'Processing failed');
+      // Find all text files
+      const files = [];
+      inputZip.forEach((path, zipEntry) => {
+        if (!zipEntry.dir && /\.(txt|md|markdown|html)$/i.test(path)) {
+          files.push({ path, entry: zipEntry });
+        }
+      });
+
+      if (files.length === 0) throw new Error('No supported files found (.txt, .md, .html)');
+
+      updateProgress(0, files.length, 'Reading files...');
+
+      // Parse files
+      const parsedFiles = [];
+      for (const { path, entry } of files) {
+        const content = await entry.async('string');
+        const text = path.endsWith('.html') ? stripHtml(content) : content;
+        const wordCount = text.split(/\s+/).filter(w => w).length;
+        if (wordCount >= 50) {
+          parsedFiles.push({
+            filename: path.split('/').pop().replace(/\.[^.]+$/, ''),
+            content: text,
+            wordCount
+          });
+        }
+      }
+
+      if (parsedFiles.length === 0) throw new Error('No files with sufficient content (min 50 words)');
+
+      // Extract metadata with AI
+      const extractions = [];
+      for (let i = 0; i < parsedFiles.length; i++) {
+        updateProgress(i, parsedFiles.length, parsedFiles[i].filename);
+        const extraction = await extractMetadata(parsedFiles[i], apiKey);
+        extractions.push(extraction);
+        await delay(300); // Rate limiting
+      }
+
+      updateProgress(parsedFiles.length, parsedFiles.length, 'Generating vault...');
+
+      // Generate vault
+      const stats = generateVault(zip, extractions);
+
+      return { zip, stats };
+    }
+
+    async function extractMetadata(file, apiKey) {
+      const prompt = `Analyze this text and extract metadata for a knowledge graph.
+
+TEXT:
+${file.content.slice(0, 10000)}
+
+KNOWN CONCEPTS: ${SEED_CONCEPTS.join(', ')}
+KNOWN ENTITIES: ${SEED_ENTITIES.join(', ')}
+
+Return JSON only:
+{
+  "title": "descriptive title",
+  "summary": "3-5 sentence summary",
+  "concepts": [{"name": "Concept", "relevance": "why relevant"}],
+  "entities": [{"name": "Entity", "type": "Person|Organization|Work", "context": "how mentioned"}],
+  "quotes": [{"text": "verbatim quote", "significance": "why important"}],
+  "themes": ["theme1", "theme2"],
+  "connections": ["related topic1", "related topic2"]
+}`;
+
+      try {
+        let response;
+        if (currentProvider === 'anthropic') {
+          response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify({
+              model: 'claude-opus-4-5-20251101',
+              max_tokens: 4000,
+              messages: [{ role: 'user', content: prompt }]
+            })
+          });
+          const data = await response.json();
+          if (data.error) throw new Error(data.error.message);
+          return parseExtraction(data.content[0].text, file);
+        } else {
+          response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                { role: 'system', content: 'Extract metadata as JSON. No markdown.' },
+                { role: 'user', content: prompt }
+              ],
+              temperature: 0.3
+            })
+          });
+          const data = await response.json();
+          if (data.error) throw new Error(data.error.message);
+          return parseExtraction(data.choices[0].message.content, file);
         }
       } catch (error) {
-        showError(error.message);
+        console.error('Extraction error:', error);
+        return { title: file.filename, summary: file.content.slice(0, 300), concepts: [], entities: [], quotes: [], themes: [], connections: [], sourceFile: file.filename, wordCount: file.wordCount };
       }
     }
 
+    function parseExtraction(text, file) {
+      try {
+        const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/) || text.match(/\{[\s\S]*\}/);
+        const json = JSON.parse(jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : text);
+        return { ...json, sourceFile: file.filename, wordCount: file.wordCount };
+      } catch {
+        return { title: file.filename, summary: file.content.slice(0, 300), concepts: [], entities: [], quotes: [], themes: [], connections: [], sourceFile: file.filename, wordCount: file.wordCount };
+      }
+    }
+
+    function generateVault(zip, extractions) {
+      const stats = { articles: 0, concepts: 0, entities: 0, totalWords: 0 };
+      const conceptMap = new Map();
+      const entityMap = new Map();
+
+      // Generate article notes
+      for (const ext of extractions) {
+        const articleContent = generateArticleNote(ext);
+        zip.file(`Articles/${sanitize(ext.title)}.md`, articleContent);
+        stats.articles++;
+        stats.totalWords += ext.wordCount || 0;
+
+        // Collect concepts
+        for (const c of ext.concepts || []) {
+          const key = c.name.toLowerCase();
+          if (!conceptMap.has(key)) conceptMap.set(key, { name: c.name, mentions: [] });
+          conceptMap.get(key).mentions.push({ article: ext.title, relevance: c.relevance });
+        }
+
+        // Collect entities
+        for (const e of ext.entities || []) {
+          const key = e.name.toLowerCase();
+          if (!entityMap.has(key)) entityMap.set(key, { name: e.name, type: e.type, mentions: [] });
+          entityMap.get(key).mentions.push({ article: ext.title, context: e.context });
+        }
+      }
+
+      // Generate concept notes
+      for (const [, data] of conceptMap) {
+        zip.file(`Concepts/${sanitize(data.name)}.md`, generateConceptNote(data));
+        stats.concepts++;
+      }
+
+      // Generate entity notes
+      for (const [, data] of entityMap) {
+        zip.file(`Entities/${sanitize(data.name)}.md`, generateEntityNote(data));
+        stats.entities++;
+      }
+
+      // Generate home note
+      zip.file('Home.md', generateHomeNote(stats, extractions));
+
+      // Obsidian config
+      zip.file('.obsidian/app.json', JSON.stringify({ showLineNumber: true }));
+
+      return stats;
+    }
+
+    function generateArticleNote(ext) {
+      return `---
+title: "${ext.title}"
+type: article
+source: "${ext.sourceFile}"
+wordCount: ${ext.wordCount || 0}
+---
+
+# ${ext.title}
+
+## Summary
+
+${ext.summary || 'No summary available.'}
+
+## Key Concepts
+
+${(ext.concepts || []).map(c => `- [[Concepts/${sanitize(c.name)}|${c.name}]]: ${c.relevance || ''}`).join('\n') || '_None identified_'}
+
+## Key Entities
+
+${(ext.entities || []).map(e => `- [[Entities/${sanitize(e.name)}|${e.name}]] (${e.type || 'Unknown'}): ${e.context || ''}`).join('\n') || '_None identified_'}
+
+## Key Quotes
+
+${(ext.quotes || []).map(q => `> "${q.text}"\n> — _${q.significance || 'Key passage'}_`).join('\n\n') || '_None extracted_'}
+
+## Connections
+
+${(ext.connections || []).map(c => `- ${c}`).join('\n') || '_None identified_'}
+`;
+    }
+
+    function generateConceptNote(data) {
+      return `---
+title: "${data.name}"
+type: concept
+mentions: ${data.mentions.length}
+---
+
+# ${data.name}
+
+## Appears In
+
+${data.mentions.map(m => `- [[Articles/${sanitize(m.article)}|${m.article}]]: ${m.relevance || ''}`).join('\n')}
+`;
+    }
+
+    function generateEntityNote(data) {
+      return `---
+title: "${data.name}"
+type: entity
+entityType: "${data.type || 'Unknown'}"
+mentions: ${data.mentions.length}
+---
+
+# ${data.name}
+
+**Type:** ${data.type || 'Unknown'}
+
+## Appears In
+
+${data.mentions.map(m => `- [[Articles/${sanitize(m.article)}|${m.article}]]: ${m.context || ''}`).join('\n')}
+`;
+    }
+
+    function generateHomeNote(stats, extractions) {
+      return `---
+title: Home
+type: home
+---
+
+# Knowledge Vault
+
+## Stats
+
+- **Articles:** ${stats.articles}
+- **Concepts:** ${stats.concepts}
+- **Entities:** ${stats.entities}
+- **Total Words:** ${stats.totalWords.toLocaleString()}
+
+## Recent Articles
+
+${extractions.slice(0, 10).map(e => `- [[Articles/${sanitize(e.title)}|${e.title}]]`).join('\n')}
+
+---
+_Generated by Obsidian Knowledge Graph Builder_
+`;
+    }
+
+    function sanitize(name) {
+      return (name || 'Untitled').replace(/[<>:"/\\|?*]/g, '').slice(0, 100);
+    }
+
+    function stripHtml(html) {
+      return html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function updateProgress(current, total, filename) {
+      const percent = Math.round((current / total) * 100);
+      elements.progressBar.style.width = `${percent}%`;
+      elements.progressStatus.textContent = `Processing ${current} of ${total}: ${filename}`;
+    }
+
+    function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
     function showResults(stats) {
-      progressSection.classList.remove('active');
-      resultsSection.classList.add('active');
-
-      successMessage.style.display = 'flex';
-      errorMessage.style.display = 'none';
-      statsGrid.style.display = 'grid';
-
-      document.getElementById('statArticles').textContent = stats.articles || 0;
-      document.getElementById('statConcepts').textContent = stats.concepts || 0;
-      document.getElementById('statEntities').textContent = stats.entities || 0;
-      document.getElementById('statWords').textContent = (stats.totalWords || 0).toLocaleString();
+      elements.progressSection.classList.remove('active');
+      elements.resultsSection.classList.add('active');
+      elements.successMessage.style.display = 'flex';
+      elements.errorMessage.style.display = 'none';
+      elements.statsGrid.style.display = 'grid';
+      document.getElementById('statArticles').textContent = stats.articles;
+      document.getElementById('statConcepts').textContent = stats.concepts;
+      document.getElementById('statEntities').textContent = stats.entities;
+      document.getElementById('statWords').textContent = stats.totalWords.toLocaleString();
     }
 
     function showError(message) {
-      progressSection.classList.remove('active');
-      resultsSection.classList.add('active');
-
-      successMessage.style.display = 'none';
-      errorMessage.style.display = 'flex';
-      statsGrid.style.display = 'none';
-      errorText.textContent = message;
-
-      downloadBtn.style.display = 'none';
+      elements.progressSection.classList.remove('active');
+      elements.resultsSection.classList.add('active');
+      elements.successMessage.style.display = 'none';
+      elements.errorMessage.style.display = 'flex';
+      elements.statsGrid.style.display = 'none';
+      elements.errorText.textContent = message;
+      elements.downloadBtn.style.display = 'none';
     }
 
-    downloadBtn.addEventListener('click', () => {
-      if (currentJobId) {
-        window.location.href = `/api/download/${currentJobId}`;
+    elements.downloadBtn.addEventListener('click', async () => {
+      if (generatedZip) {
+        const blob = await generatedZip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'obsidian-vault.zip';
+        a.click();
+        URL.revokeObjectURL(url);
       }
     });
 
-    newUploadBtn.addEventListener('click', () => {
-      // Reset state
+    elements.newUploadBtn.addEventListener('click', () => {
       currentFile = null;
-      currentJobId = null;
-      fileInput.value = '';
-      selectedFile.style.display = 'none';
-      dropzone.style.display = 'block';
-      progressBar.style.width = '0%';
-      downloadBtn.style.display = 'block';
-
-      // Show upload section
-      uploadSection.style.display = 'block';
-      progressSection.classList.remove('active');
-      resultsSection.classList.remove('active');
-
+      generatedZip = null;
+      elements.fileInput.value = '';
+      elements.selectedFile.style.display = 'none';
+      elements.dropzone.style.display = 'block';
+      elements.progressBar.style.width = '0%';
+      elements.downloadBtn.style.display = 'block';
+      elements.uploadSection.style.display = 'block';
+      elements.progressSection.classList.remove('active');
+      elements.resultsSection.classList.remove('active');
       updateSubmitButton();
     });
   </script>
